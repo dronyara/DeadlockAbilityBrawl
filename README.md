@@ -83,7 +83,8 @@ map start and on `/draft`:
   "UniqueHeroes": true,
   "SecondsAfterMatch": 20,
   "DraftTimeLimit": 0,
-  "PregameSeconds": 10
+  "PregameSeconds": 10,
+  "Logging": true
 }
 ```
 - `Blacklist` — abilities that are never offered. Use the internal name or the English or Russian name; all of them
@@ -98,6 +99,8 @@ map start and on `/draft`:
 - `DraftTimeLimit` — seconds the ability draft waits for a player; after that the rest of their picks are made at
   random. `0` (the default) is no limit: the draft waits until everyone has picked.
 - `PregameSeconds` — Standard rules: seconds everyone waits behind the spawn walls before the match starts.
+- `Logging` — `false`: the plugin writes nothing to the server console or to `abilitydraft.log` in `%TEMP%`. Leave
+  it on while something is being looked into: the log is what a bug report needs.
 
 ## Optional client addon
 [`clientside/pak01_dir.vpk`](clientside) is ready to install; [`clientside/README.md`](clientside/README.md) says

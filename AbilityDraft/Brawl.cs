@@ -84,6 +84,23 @@ public sealed partial class DraftPlugin
         _loggedBrawlState = state;
         Log($"brawl state {state}, round {Marshal.ReadInt32(Brawl, BrawlRound)}");
         if (state == BrawlBuyPhase) Timer.Once(2.Seconds(), LogDraftStates);
+        if (state == BrawlRoundOver) RespawnTheDead();
+    }
+
+    // A player who is dead when a round ends is put back on their hero by the brawl in the very tick it deals the
+    // next draft. Deadworks answers a change of a player's pawn with a full update for that client, and a client in
+    // the middle of one misses the start of the draft: the cards are there on the server, the screen never opens.
+    // So the dead are brought back when the round is called, a few seconds before the buy phase; by the time the
+    // cards go out their client has long finished.
+    const int BrawlRoundOver = 5;           // EStreetBrawlGameState: the pause between a round and the next buy phase
+
+    void RespawnTheDead()
+    {
+        foreach (var pawn in Players.GetAllPawns().Where(p => !p.IsAlive).ToList())
+        {
+            Log($"round over: respawning {pawn.HeroID} ahead of the buy phase");
+            pawn.ForceRespawn();
+        }
     }
 
     void LogDraftStates()
