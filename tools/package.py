@@ -80,6 +80,7 @@ start. The file explains itself; in short:
   "SecondsAfterMatch": 20          delay before the lobby reopens after a match; 0 switches it off
   "DraftTimeLimit": 0              seconds the draft waits for a player before picking for them; 0 - no limit
   "PregameSeconds": 10             Standard: countdown behind the spawn walls before the match starts
+  "Logging": true                  false - no plugin lines in the server console or in its log file
 
 CLIENT ADDON (optional, for each player who wants it)
 clientside/pak01_dir.vpk in the repository, with install notes next to it. It must match the game build and is

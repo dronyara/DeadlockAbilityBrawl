@@ -25,6 +25,8 @@ public sealed partial class DraftPlugin
         public int DraftTimeLimit { get; set; } = 0;
         /// <summary>Standard rules: seconds everyone waits behind the spawn walls before the match starts. 0 = none.</summary>
         public int PregameSeconds { get; set; } = 10;
+        /// <summary>Write the plugin's log (the server console and the abilitydraft.log file in %TEMP%).</summary>
+        public bool Logging { get; set; } = true;
     }
 
     ConfigFile _config = new();
@@ -62,9 +64,11 @@ public sealed partial class DraftPlugin
             string text = File.ReadAllText(ConfigPath);
             var config = JsonSerializer.Deserialize<ConfigFile>(text, ConfigJson) ?? new ConfigFile();
             // A config written by an older version: add the settings it does not have yet, keep the ones it has.
-            if (!text.Contains(nameof(ConfigFile.PregameSeconds), StringComparison.OrdinalIgnoreCase)) WriteConfig(config);
+            if (!text.Contains(nameof(ConfigFile.Logging), StringComparison.OrdinalIgnoreCase)) WriteConfig(config);
             _config = config;
             _ru = config.Language.Trim().StartsWith("ru", StringComparison.OrdinalIgnoreCase);
+            if (_logging && !config.Logging) Log("config: logging is switched off from here on");
+            _logging = config.Logging;
             var unknown = new List<string>();
             foreach (var entry in config.Blacklist.Select(e => e.Trim()).Where(e => e.Length > 0))
             {
@@ -98,6 +102,7 @@ public sealed partial class DraftPlugin
             "// DraftTimeLimit: seconds the ability draft waits for a player; after that the rest of their picks are\n" +
             "//   made at random. 0 - no limit, the draft waits until everyone has picked.\n" +
             "// PregameSeconds: Standard rules - seconds everyone waits behind the spawn walls before the match starts.\n" +
+            "// Logging: false - the plugin writes nothing to the server console or to its log file in %TEMP%.\n" +
             JsonSerializer.Serialize(config, ConfigJson) + "\n", new UTF8Encoding(false));
 
     /// <summary>A plain list of every ability name the blacklist accepts, kept next to the config for the host.</summary>

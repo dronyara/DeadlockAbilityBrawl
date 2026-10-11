@@ -9,8 +9,11 @@ public sealed partial class DraftPlugin
     static readonly string LogPath = Path.Combine(Path.GetTempPath(), "abilitydraft.log");
     static readonly string BridgePath = Path.Combine(Path.GetTempPath(), "abilitydraft.cmd");
 
+    static bool _logging = true;        // "Logging" in the config
+
     static void Log(string s)
     {
+        if (!_logging) return;
         Console.WriteLine("[AD] " + s);
         try { File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss} {s}{Environment.NewLine}"); } catch { }
     }
