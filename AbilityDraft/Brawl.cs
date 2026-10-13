@@ -213,7 +213,10 @@ public sealed partial class DraftPlugin
             case "give":
                 // give <slot> <ability 1-4> <name>: put an ability into a slot, as a pick does
                 if (Players.FromSlot(int.Parse(a[0]))?.GetHeroPawn() is { } taker)
+                {
                     Log($"  give {a[2]} -> slot {a[1]}: {ReplaceAbility(taker, int.Parse(a[1]) - 1, a[2])}");
+                    if (_kits.TryGetValue(int.Parse(a[0]), out var held)) held[int.Parse(a[1]) - 1] = a[2];
+                }
                 break;
             case "allabil":
                 // every ability entity a hero holds, hidden ones included

@@ -14,15 +14,21 @@ addon ([`clientside/`](clientside)) adds mouse picks on the draft screen and a w
 1. Somebody starts the server. Players open the Deadlock console and type `connect <ip>:27067`, then pick heroes
    (the usual way, or `/hero haze` and `/team amber|sapphire` in chat). A hero somebody already has cannot be picked.
 2. The **lobby leader** (the first player who joined) types **`/draft`** in chat.
-3. Everyone votes, 25 seconds, by typing a digit in chat. A tie goes to the leader's vote.
+3. Everyone votes by typing a digit in chat, in two steps of 15 seconds each: first the rules, then the format.
+   A step ends early once everybody has voted; a tie goes to the leader's vote.
    - **Rules**: **1** Standard, **2** Street Brawl.
    - **Format**: **3** Draft (everyone picks four abilities), **4** Chaos (a random hero and four random
      abilities, nobody picks anything), **5** Shuffle (your own hero and four random abilities; once an
      ability you used has run its course it is replaced by another random one, which takes over the rest of its
      cooldown. An item attached to the ability stays with the slot).
 
-   Players with the client addon get the same vote as a panel with buttons. `/chaos` instead of `/draft` skips
-   the format vote and goes straight to Chaos.
+   Players with the client addon get the same vote as a panel with tiles: the portraits of those who voted
+   appear under each tile, and the format step slides in from below once the rules are settled. `/chaos` instead
+   of `/draft` skips the format vote and goes straight to Chaos.
+
+   With the addon the lobby leader also has a panel at the right edge of the screen while the lobby is open: the
+   presets, who is here and with which hero, and a Start button. Hold TAB to click it. Before the fight everyone
+   with the addon is shown both teams' kits for a few seconds.
 4. The match starts and the **stock Street Brawl draft screen opens with ability cards**. Four picks, the last one
    is the ultimate, with three rerolls per pick on the stock Reroll button.
    **Take a card by typing its number in chat: Enter → `1`, `2` or `3` → Enter (left, top, right).** The message is
@@ -92,7 +98,14 @@ map start and on `/draft`:
   "DraftTimeLimit": 0,
   "PregameSeconds": 10,
   "Logging": true,
-  "ShuffleSeconds": 1
+  "ShuffleSeconds": 1,
+  "ShufflePassiveSeconds": 30,
+  "ShuffleNoWeaponItems": true,
+  "Trace": false,
+  "Stats": true,
+  "Presets": {
+    "brawl shuffle": { "Rules": "brawl", "Format": "shuffle", "ShuffleSeconds": 0 }
+  }
 }
 ```
 - `Blacklist` — abilities that are never offered. Use the internal name or the English or Russian name; all of them
@@ -111,6 +124,19 @@ map start and on `/draft`:
   it on while something is being looked into: the log is what a bug report needs.
 - `ShuffleSeconds` — Shuffle format: the shortest time between using an ability and getting another one in its
   place. The swap also waits for the ability to finish what it is doing.
+- `ShufflePassiveSeconds` — Shuffle format: a passive ability, which is never used, is swapped after this many
+  seconds. `0` leaves passives alone.
+- `ShuffleNoWeaponItems` — Shuffle under Street Brawl rules: `true` keeps weapon items out of the item draft.
+- `Trace` — `true` also logs every client command and key press. The log grows by tens of megabytes an evening;
+  switch it on to hunt a bug and off again afterwards.
+- `Stats` — `true` writes one line per finished match to `AbilityDraft.stats.jsonl` next to the config: the rules,
+  the format, and each player's hero, team, kit and whether they won (no names, no Steam IDs). `/stats` in chat
+  shows the five most held abilities and how often their holders won. After every match the plugin also writes
+  `AbilityDraft.stats.html` there: one sortable table of all abilities, to open in a browser.
+- `Presets` — named bundles of settings. The lobby leader types `/preset <name>` instead of `/draft`; `/preset` on
+  its own lists them. `Rules` is `standard`, `brawl` or `vote`; `Format` is `draft`, `chaos`, `shuffle` or `vote`;
+  whatever is fixed is not voted on. A preset may also carry its own `Blacklist`, `DraftTimeLimit`,
+  `ShuffleSeconds`, `ShufflePassiveSeconds` and `ShuffleNoWeaponItems`; the rest comes from the main settings.
 
 ## Optional client addon
 [`clientside/pak01_dir.vpk`](clientside) is ready to install; [`clientside/README.md`](clientside/README.md) says
@@ -156,12 +182,16 @@ Deadworks stops starting until its next release, and the plugin's own signatures
 - **The server needs Deadworks v0.6.0 or newer, and the client addon must be the one from this version.** An addon
   from v1.1.1 or older carries the previous Deadworks UI bridge; with a v0.6.0 server a client with it was reported
   to crash on respawn.
-- **Shuffle:** passive abilities never change (they are never used). An ability is kept while something it made
+- **Shuffle:** an ability is kept while something it made
   is still there (a buff, a mark, a piece on the board), for a minute at most; an effect the plugin cannot see
   behind the ability may still end when the ability is swapped.
-- v1.0 was played by a lobby of six. v1.2 (build 6774, Deadworks v0.6.0) was played by one player with bots: the
-  vote panel, Shuffle with real casts and dying and respawning with the addon were seen in game; `/reroll` and
-  Chaos chosen by vote were checked with bots only.
+- **One open report:** a player's client stops responding when their hero respawns (1v1, both rule sets, on
+  v1.2.1). It has not been reproduced: on the author's server four players respawned dozens of times in an evening
+  without it. If it happens to you, the client's crash dump from `game\bin\win64` and a try without the addon
+  are what will tell where it comes from.
+- v1.3 (build 6774, Deadworks v0.6.0): the look of the panels and the two-step vote were seen in game by one player;
+  v1.2.1 was played by a lobby of four. Checked with bots only: keeping a kit, a draft seat or a vote through a
+  reconnect, the held result screen, presets, the match record, passives on a clock and the item filter in Shuffle.
 
 ## What is inside
 - `AbilityDraft/` — the plugin (C#): `DraftPlugin.cs` (phases, vote, the text-menu draft), `NativeDraft.cs` (the

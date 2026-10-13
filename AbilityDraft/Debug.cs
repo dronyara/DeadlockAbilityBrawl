@@ -154,6 +154,13 @@ public sealed partial class DraftPlugin
                 PanelUi = a.Length == 0 || a[0] != "0";
                 Log($"panels for clients with the UI bridge = {PanelUi}");
                 break;
+            case "preset":
+                LoadConfig();
+                StartPreset(_config.Presets.Keys.First(k => k.Equals(arg.Trim(), StringComparison.OrdinalIgnoreCase)));
+                break;
+            case "statspage":
+                Log($"statistics page: {WriteStatsPage() ?? "nothing recorded"}");
+                break;
             case "forceformat":
                 _forcedFormat = ParseFormat(a[0]);
                 Log($"forced format = {_forcedFormat}");

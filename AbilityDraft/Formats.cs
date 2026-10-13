@@ -28,7 +28,7 @@ public sealed partial class DraftPlugin
 
     void CastFormat(int slot, Format f)
     {
-        if (_phase != Phase.Voting || _forcedFormat != Format.None || f == Format.None || !_seats.TryGetValue(slot, out var s)) return;
+        if (_phase != Phase.Voting || _voteStep != 2 || _forcedFormat != Format.None || f == Format.None || !_seats.TryGetValue(slot, out var s)) return;
         s.FormatVote = f;
         Log($"slot {slot} votes for format {f}");
         var name = Players.FromSlot(slot)?.PlayerName ?? $"#{slot}";
@@ -95,6 +95,9 @@ public sealed partial class DraftPlugin
     // What each ability slot looked like at the last look, to notice a use: a new cooldown, or a charge gone.
     readonly Dictionary<(int Player, int Slot), (float CooldownStart, int Charges)> _shuffleSeen = new();
     readonly Dictionary<(int Player, int Slot), float> _shuffleUsedAt = new();
+    // When the ability now in a slot got there. A passive is never used, so it would stay for the whole match; it
+    // is swapped on a clock instead (ShufflePassiveSeconds).
+    readonly Dictionary<(int Player, int Slot), float> _shuffleSince = new();
 
     // "Still going" is read off the ability itself (a cast, a channel, a toggle) and off the world: an effect an
     // ability leaves behind - a buff, a mark on an enemy, a piece on the board, a wall - is a modifier that names the
@@ -157,7 +160,13 @@ public sealed partial class DraftPlugin
                 if (pawn.GetAbilityBySlot((EAbilitySlot)i) is not CCitadelBaseAbility ability || ability.AbilityName != kit[i]) continue;
                 var key = (player, i);
                 var now = (ability.CooldownStart, ability.RemainingCharges);
-                if (!_shuffleSeen.TryGetValue(key, out var seen)) { _shuffleSeen[key] = now; continue; }
+                if (!_shuffleSeen.TryGetValue(key, out var seen)) { _shuffleSeen[key] = now; _shuffleSince[key] = Now; continue; }
+                if (_config.ShufflePassiveSeconds > 0 && AbilityPool.Passives.Contains(kit[i])
+                    && _shuffleSince.TryGetValue(key, out float since) && Now >= since + _config.ShufflePassiveSeconds)
+                {
+                    SwapUsedAbility(c, pawn, kit, i, ability);
+                    continue;
+                }
                 bool used = ability.IsOnCooldown && now.CooldownStart > seen.CooldownStart + 0.05f || now.RemainingCharges < seen.Charges;
                 _shuffleSeen[key] = now;
                 if (used) _shuffleUsedAt.TryAdd(key, Now);
@@ -187,9 +196,10 @@ public sealed partial class DraftPlugin
             if (cooling) { fresh.CooldownStart = start; fresh.CooldownEnd = end; }
             _shuffleSeen[(c.Slot, slot)] = (fresh.CooldownStart, fresh.RemainingCharges);
         }
+        _shuffleSince[(c.Slot, slot)] = Now;
         Log($"shuffle slot {c.Slot}: {was} -> {next.Name} (slot {slot + 1})");
         if (c.IsBot) return;
         bool ru = _seats.TryGetValue(c.Slot, out var seat) ? seat.Ru : _ru;
-        Chat.PrintToChat(c, $"[Draft] {slot + 1}: {next.Title(ru)}");
+        if (!ShowSwap(c, slot, next, ru)) Chat.PrintToChat(c, $"[Draft] {slot + 1}: {next.Title(ru)}");
     }
 }

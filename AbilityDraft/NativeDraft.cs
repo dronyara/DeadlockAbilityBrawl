@@ -60,6 +60,7 @@ public sealed partial class DraftPlugin
     // the match starts as Street Brawl, everyone drafts, then the mode is switched back and the match restarts.
     // The buy phase is held open for as long as somebody is still drafting (HoldBuyPhase), under either rules.
     bool _nativeThenStandard;
+    bool _kitsShown;            // the kits panel went out for this draft
     float _nativeDeadline;      // only with DraftTimeLimit set: whoever is still drafting then gets random picks
 
     void ArmNativeDraft(bool thenStandard)
@@ -111,6 +112,11 @@ public sealed partial class DraftPlugin
         }
         if (drafting) HoldBuyPhase();
         else if (_nativeThenStandard) SwitchToStandard();
+        else if (!_kitsShown && _native.Values.Any(ns => ns.Round >= Slots))
+        {
+            _kitsShown = true;
+            ShowKits(7f);
+        }
     }
 
     /// <summary>Ends a hero's stock draft the way the engine does after the last pick, so the client closes its screen.</summary>
@@ -219,6 +225,7 @@ public sealed partial class DraftPlugin
         _phase = Phase.Pregame;
         _phaseEnd = Now + _config.PregameSeconds;
         GameRules.SetGameStateEndTime(_phaseEnd);
+        ShowKits(_config.PregameSeconds);
         Announce("STANDARD", L($"Матч начнётся через {_config.PregameSeconds} с", $"Match starts in {_config.PregameSeconds} s"));
     }
 
