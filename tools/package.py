@@ -89,7 +89,7 @@ start. The file explains itself; in short:
   "ShuffleNoWeaponItems": true     Shuffle under Street Brawl rules: no weapon items in the item draft
   "Trace": false                   true - also log every client command and key press (a large log)
   "Stats": true                    one line per finished match in AbilityDraft.stats.jsonl; /stats shows a summary
-  "Presets": {}                    named settings for /preset <name> (the config file shows an example)
+  "Presets": {{}}                  named settings for /preset <name> (the config file shows an example)
 
 CLIENT ADDON (optional, for each player who wants it)
 clientside/pak01_dir.vpk in the repository, with install notes next to it. It must match the game build and is
