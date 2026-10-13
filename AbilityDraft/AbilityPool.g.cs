@@ -219,4 +219,43 @@ public static partial class AbilityPool
         ["hero_wraith"] = "file://{images}/heroes/wraith_sm.psd",
         ["hero_yamato"] = "file://{images}/heroes/yamato_sm.psd",
     };
+
+    // Abilities that come with another one (second stages, alternate fire), by the ability that brings them.
+    public static readonly Dictionary<string, string[]> Dependents = new()
+    {
+        ["ability_baba_bench_run"] = ["ability_baba_bench_melee"],
+        ["ability_baba_hexing_brew"] = ["ability_baba_hexing_brew_throw"],
+        ["ability_charged_bomb"] = ["ability_charged_bomb_throw"],
+        ["ability_chessmaster_forkpiece"] = ["ability_chessmaster_forkpiece_trigger"],
+        ["ability_chessmaster_queen"] = ["ability_chessmaster_movechesspiece", "ability_chessmaster_queen_trigger"],
+        ["ability_chessmaster_throwbishop"] = ["ability_chessmaster_throwbishop_trigger"],
+        ["ability_doorman_doorway"] = ["ability_doorman_doorway_close"],
+        ["ability_druid_sprout"] = ["ability_druid_plant_something", "ability_druid_plant_healing_tree", "ability_druid_plant_branch_wall", "ability_druid_plant_invis_bush"],
+        ["ability_familiar_attach"] = ["ability_familiar_attach_trigger"],
+        ["ability_fencer_riposte"] = ["ability_fencer_riposte_target_select"],
+        ["ability_ice_dome"] = ["ability_ice_dome_trigger"],
+        ["ability_magician_cloneturret"] = ["ability_magician_cloneturret_trigger"],
+        ["ability_magician_magicbolt"] = ["ability_magician_magicbolt_trigger"],
+        ["ability_nano_catform"] = ["ability_nano_catform_pounce", "ability_nano_catform_trigger"],
+        ["ability_necro_killsummon"] = ["ability_necro_killsummon_trigger"],
+        ["ability_perched_predator"] = ["ability_perched_predator_trigger"],
+        ["ability_priest_weaponswap"] = ["citadel_weapon_priest_crossbow"],
+        ["ability_ratking_standard_bearer"] = ["ability_ratking_standard_bearer_trigger"],
+        ["ability_vampirebat_batblink"] = ["ability_vampirebat_batblink_trigger"],
+        ["ability_viper_snakedash"] = ["ability_viper_slide"],
+        ["ability_werewolf_hunt"] = ["citadel_weapon_werewolf_claws"],
+        ["ability_werewolf_kickflip"] = ["ability_werewolf_maulingleap"],
+        ["ability_werewolf_netshot"] = ["ability_werewolf_cripplingslash"],
+        ["ability_werewolf_transformation"] = ["ability_werewolf_transformation_trigger", "citadel_weapon_werewolf_claws", "ability_werewolf_cripplingslash", "ability_werewolf_maulingleap", "ability_werewolf_frenzy"],
+        ["ability_werewolf_unloadgun"] = ["ability_werewolf_frenzy"],
+        ["ability_wrecking_ball"] = ["ability_wrecking_ball_throw"],
+        ["citadel_ability_fissure_wall"] = ["citadel_ability_fissure_wall_cancel", "citadel_ability_fissure_wall_trigger"],
+        ["citadel_ability_tangotether"] = ["citadel_ability_tangotether_trigger"],
+        ["citadel_weapon_digger_set"] = ["ability_digger_entertunnel"],
+        ["citadel_weapon_ratking_set"] = ["ability_ratking_entertunnel"],
+        ["citadel_weapon_werewolf_rifle"] = ["citadel_weapon_werewolf_claws"],
+        ["citadel_weapon_yakuza_set"] = ["yakuza_gang_activity_cancel", "yakuza_teleport_to_gangster", "yakuza_summon_gangster", "yakuza_shakedown"],
+        ["drifter_shadow_mark"] = ["drifter_shadow_mark_teleport"],
+        ["synth_plasma_flux"] = ["synth_plasma_flux_trigger"],
+    };
 }

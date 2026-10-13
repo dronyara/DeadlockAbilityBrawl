@@ -17,8 +17,9 @@ addon ([`clientside/`](clientside)) adds mouse picks on the draft screen and a w
 3. Everyone votes, 25 seconds, by typing a digit in chat. A tie goes to the leader's vote.
    - **Rules**: **1** Standard, **2** Street Brawl.
    - **Format**: **3** Draft (everyone picks four abilities), **4** Chaos (a random hero and four random
-     abilities, nobody picks anything), **5** Shuffle (your own hero and four random abilities; a second after
-     you use an ability it is replaced by another random one, which takes over the rest of its cooldown).
+     abilities, nobody picks anything), **5** Shuffle (your own hero and four random abilities; once an
+     ability you used has run its course it is replaced by another random one, which takes over the rest of its
+     cooldown. An item attached to the ability stays with the slot).
 
    Players with the client addon get the same vote as a panel with buttons. `/chaos` instead of `/draft` skips
    the format vote and goes straight to Chaos.
@@ -108,7 +109,8 @@ map start and on `/draft`:
 - `PregameSeconds` — Standard rules: seconds everyone waits behind the spawn walls before the match starts.
 - `Logging` — `false`: the plugin writes nothing to the server console or to `abilitydraft.log` in `%TEMP%`. Leave
   it on while something is being looked into: the log is what a bug report needs.
-- `ShuffleSeconds` — Shuffle format: seconds between using an ability and getting another one in its place.
+- `ShuffleSeconds` — Shuffle format: the shortest time between using an ability and getting another one in its
+  place. The swap also waits for the ability to finish what it is doing.
 
 ## Optional client addon
 [`clientside/pak01_dir.vpk`](clientside) is ready to install; [`clientside/README.md`](clientside/README.md) says
@@ -154,8 +156,9 @@ Deadworks stops starting until its next release, and the plugin's own signatures
 - **The server needs Deadworks v0.6.0 or newer, and the client addon must be the one from this version.** An addon
   from v1.1.1 or older carries the previous Deadworks UI bridge; with a v0.6.0 server a client with it was reported
   to crash on respawn.
-- **Shuffle:** passive abilities never change (they are never used), and an item attached to an ability is left
-  without its ability when that ability is swapped.
+- **Shuffle:** passive abilities never change (they are never used). An ability is kept while something it made
+  is still there (a buff, a mark, a piece on the board), for a minute at most; an effect the plugin cannot see
+  behind the ability may still end when the ability is swapped.
 - v1.0 was played by a lobby of six. v1.2 (build 6774, Deadworks v0.6.0) was played by one player with bots: the
   vote panel, Shuffle with real casts and dying and respawning with the addon were seen in game; `/reroll` and
   Chaos chosen by vote were checked with bots only.

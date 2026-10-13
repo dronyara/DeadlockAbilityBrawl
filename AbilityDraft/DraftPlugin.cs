@@ -399,15 +399,24 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
             if (before.SequenceEqual(kit)) return;
             // Clear all four slots first: a drafted ability may already sit in another slot of this hero.
             var bits = new int[Slots];
+            var items = new List<CCitadelBaseAbility>[Slots];
+            var removed = new List<string>();
             for (int i = 0; i < Slots; i++)
             {
                 if (pawn.GetAbilityBySlot((EAbilitySlot)i) is not CCitadelBaseAbility old) continue;
                 bits[i] = old.UpgradeBits;
+                items[i] = AttachedItems(pawn, old);
+                removed.Add(old.AbilityName);
                 if (!pawn.RemoveAbility(old)) Log($"  could not remove {old.AbilityName} from slot {i + 1}");
             }
+            foreach (var name in removed) RemoveDependents(pawn, name);
             for (int i = 0; i < Slots; i++)
+            {
                 if (!PutAbility(pawn, i, kit[i], bits[i]))
                     Log($"  could not add {kit[i]} to slot {i + 1}");
+                if (items[i] is { Count: > 0 }) ReattachItems(pawn, i, items[i]);
+            }
+            EnsureCompanions(pawn);
             Log($"kit applied slot={pawn.Controller?.Slot} hero={pawn.HeroID}: [{string.Join(", ", before)}] -> [{string.Join(", ", KitOf(pawn))}]");
         }
         catch (Exception ex)
@@ -438,12 +447,20 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     bool ReplaceAbility(CCitadelPlayerPawn pawn, int slot, string name)
     {
         int bits = 0;
+        List<CCitadelBaseAbility> items = [];
         if (pawn.GetAbilityBySlot((EAbilitySlot)slot) is CCitadelBaseAbility old)
         {
             bits = old.UpgradeBits;
+            items = AttachedItems(pawn, old);
+            string was = old.AbilityName;
             pawn.RemoveAbility(old);
+            RemoveDependents(pawn, was);
         }
-        return PutAbility(pawn, slot, name, bits);
+        bool ok = PutAbility(pawn, slot, name, bits);
+        // An item attached to the old ability stays with the slot.
+        if (ok && items.Count > 0) ReattachItems(pawn, slot, items);
+        EnsureCompanions(pawn);
+        return ok;
     }
 
     static string[] KitOf(CCitadelPlayerPawn pawn) =>

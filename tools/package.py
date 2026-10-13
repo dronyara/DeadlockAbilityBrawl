@@ -58,7 +58,7 @@ PLAY
   in chat - or /chaos, which gives everyone a random hero and four random abilities with no picks.
 - Everyone votes by typing a digit in chat. Rules: 1 Standard, 2 Street Brawl. Format: 3 Draft, 4 Chaos (random
   heroes and abilities), 5 Shuffle (your hero, random abilities, and an ability is replaced by another random one
-  a second after you use it). /chaos instead of /draft skips the format vote.
+  once it has run its course). /chaos instead of /draft skips the format vote.
 - The match starts and the draft screen opens with ability cards. Take a card by typing 1, 2 or 3 in chat
   (left, top, right). Four picks, the last one is the ultimate; three rerolls per pick with the Reroll button.
   With the client addon, type /vpk before the draft and click the cards instead.

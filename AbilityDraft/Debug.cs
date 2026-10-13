@@ -243,7 +243,7 @@ public sealed partial class DraftPlugin
                     Log($"cast slot={a[0]} ability={(pawn?.GetAbilityBySlot(slot) as CCitadelBaseAbility)?.AbilityName} -> {pawn?.ExecuteAbilityBySlot(slot)}");
                     break;
                 }
-            case "brawl" or "brawlnext" or "mods" or "named" or "input" or "endtime" or "walls" or "nobot" or "npick" or "kill" or "ds" or "closedraft" or "hurtents" or "cds" or "usecd":
+            case "brawl" or "brawlnext" or "mods" or "named" or "input" or "endtime" or "walls" or "nobot" or "npick" or "kill" or "ds" or "closedraft" or "hurtents" or "cds" or "usecd" or "give" or "allabil" or "item" or "imbued" or "live":
                 BrawlBridge(cmd, a);
                 break;
             default:

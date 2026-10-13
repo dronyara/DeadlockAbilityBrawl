@@ -185,6 +185,41 @@ public sealed partial class DraftPlugin
                     Log($"  {used.AbilityName} put on cooldown until {used.CooldownEnd:F1}");
                 }
                 break;
+            case "item":
+                // item <slot> <item name> [ability 1-4]: give an item, and attach it to an ability
+                if (Players.FromSlot(int.Parse(a[0]))?.GetHeroPawn() is { } buyer)
+                {
+                    var got = buyer.AddItem(a[1]);
+                    Log($"  item {a[1]} -> slot {a[0]}: {(got != null)}");
+                    if (a.Length > 2 && buyer.AbilityComponent.FindAbilityByName(a[1]) is CCitadelBaseAbility bought)
+                        Log($"  attach to ability {a[2]}: {buyer.ImbueItem(bought, (EAbilitySlot)(int.Parse(a[2]) - 1))}");
+                }
+                break;
+            case "imbued":
+                foreach (var pawn in Players.GetAllPawns())
+                    foreach (var ab in pawn.AbilityComponent.Abilities.Where(x => x.IsItem || x.IsSignature))
+                        Log($"  imbued slot={pawn.Controller?.Slot} {ab.AbilityName} item={ab.IsItem} isImbued={ab.IsImbued} names=[{string.Join(", ", ab.ImbuedAbilities)}] ids=[{string.Join(", ", ab.ImbuedAbilityIds.Select(id => $"0x{id:x8}"))}]");
+                break;
+            case "live":
+                {
+                    // effects in the world by the ability they came from, for the Shuffle format
+                    var live = LiveEffects();
+                    Log($"  live: cast state known={CastStateKnown}, modifier source known={ModifierSourceKnown}, {live.Count} abilities with effects, now={Now:F1}");
+                    foreach (var pawn in Players.GetAllPawns())
+                        foreach (var ab in pawn.AbilityComponent.Abilities.Where(x => live.ContainsKey(x.EntityHandle)))
+                            Log($"    slot={pawn.Controller?.Slot} {ab.AbilityName} newest effect made at {live[ab.EntityHandle]:F1}, in cast={InCast(ab)}");
+                    break;
+                }
+            case "give":
+                // give <slot> <ability 1-4> <name>: put an ability into a slot, as a pick does
+                if (Players.FromSlot(int.Parse(a[0]))?.GetHeroPawn() is { } taker)
+                    Log($"  give {a[2]} -> slot {a[1]}: {ReplaceAbility(taker, int.Parse(a[1]) - 1, a[2])}");
+                break;
+            case "allabil":
+                // every ability entity a hero holds, hidden ones included
+                foreach (var pawn in Players.GetAllPawns())
+                    Log($"  allabil slot={pawn.Controller?.Slot} {pawn.HeroID}: {string.Join(", ", pawn.AbilityComponent.Abilities.Where(x => !x.IsItem).Select(x => $"{x.AbilityName}@{(int)x.AbilitySlot}"))}");
+                break;
             case "cds":
                 // cooldown state of every drafted ability, for the Shuffle format
                 foreach (var pawn in Players.GetAllPawns())
