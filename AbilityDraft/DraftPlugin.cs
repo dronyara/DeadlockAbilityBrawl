@@ -35,6 +35,8 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         public readonly int[] Rerolls = new int[Offers];
         public readonly HashSet<string> Seen = new();       // offered this round, so a reroll never repeats
         public Rules Vote;
+        public Format FormatVote;
+        public bool VoteExplained;                          // the chat lines about the vote went out
         public float NextBotAt;
         public CPointWorldText? Billboard;
         public bool Prev1, Prev2, Prev3;
@@ -109,6 +111,10 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _trainSkills.Clear();
         _wallsUp = false;           // a new map has its spawn walls down again
         _buyLength = 0;
+        _format = Format.None;
+        _forcedFormat = Format.None;
+        _shuffleSeen.Clear();
+        _shuffleUsedAt.Clear();
         _loggedBrawlState = 0;
         if (_phase == Phase.Restoring && _restore.Count > 0)
         {
@@ -195,7 +201,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
             case Phase.Starting: if (Now >= _phaseEnd) StartMatch(); break;
             case Phase.Restoring: TickRestore(); break;
             case Phase.Pregame: if (Now >= _phaseEnd) StartRestoredMatch(); break;
-            case Phase.Match: TickEmptyMatch(); TickMatchOver(); break;
+            case Phase.Match: TickEmptyMatch(); TickMatchOver(); TickShuffle(); break;
         }
     }
 
@@ -261,12 +267,12 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         foreach (var s in _seats.Values) ShowOffer(s);
     }
 
-    void BeginCountdown()
+    void BeginCountdown(float seconds = StartDelaySeconds)
     {
         foreach (var s in _seats.Values) HidePanel(s);
         _phase = Phase.Starting;
-        _phaseEnd = Now + StartDelaySeconds;
-        Announce(RulesName(_rules).ToUpperInvariant(), L($"Матч начнётся через {StartDelaySeconds:0} с", $"Match starts in {StartDelaySeconds:0} s"));
+        _phaseEnd = Now + seconds;
+        Announce(RulesName(_rules).ToUpperInvariant(), L($"Матч начнётся через {seconds:0} с", $"Match starts in {seconds:0} s"));
     }
 
     void DealRound(Seat s)
@@ -449,10 +455,14 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _phase = Phase.Voting;
         _phaseEnd = Now + VoteSeconds;
         Log("VOTE START");
-        Announce(L("ГОЛОСОВАНИЕ", "VOTE"), "1 — Standard   2 — Street Brawl");
+        Announce(L("ГОЛОСОВАНИЕ", "VOTE"), _forcedFormat != Format.None
+            ? "1 — Standard   2 — Street Brawl"
+            : L("Правила: 1, 2   Формат: 3, 4, 5", "Rules: 1, 2   Format: 3, 4, 5"));
         foreach (var s in _seats.Values)
         {
             s.Vote = Rules.None;
+            s.FormatVote = Format.None;
+            s.VoteExplained = false;
             s.Prev1 = s.Prev2 = s.Prev3 = true;     // a key still held from the last pick must not count as a vote
             if (s.Bot) continue;
             ShowVote(s);
@@ -467,13 +477,19 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         Log($"slot {slot} votes {r}");
         var name = Players.FromSlot(slot)?.PlayerName ?? $"#{slot}";
         Chat.PrintToChatAll($"[Draft] {name}: {RulesName(r)}");
-        ShowVote(s);
+        RefreshVote();
     }
 
     void TickVote()
     {
         var humans = _seats.Values.Where(s => !s.Bot).ToList();
-        if (Now < _phaseEnd && humans.Any(s => s.Vote == Rules.None)) return;
+        bool formatOpen = _forcedFormat == Format.None;
+        if (Now >= _nextTimerText)
+        {
+            _nextTimerText = Now + 1f;
+            foreach (var s in _seats.Values.Where(s => s.PanelUp)) UI.Panel(PanelId).Set(RecipientFilter.Single(s.Slot), "ad_timer", VoteClock());
+        }
+        if (Now < _phaseEnd && humans.Any(s => s.Vote == Rules.None || formatOpen && s.FormatVote == Format.None)) return;
 
         int std = humans.Count(s => s.Vote == Rules.Standard), brawl = humans.Count(s => s.Vote == Rules.StreetBrawl);
         // A tie goes to the lobby leader's vote, and to Standard when the leader did not vote.
@@ -487,12 +503,28 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
             Chat.PrintToChatAll(L($"[Draft] Для Street Brawl слишком много игроков ({_seats.Count}, максимум {_config.MaxPlayersStreetBrawl}) — играем Standard.",
                 $"[Draft] Too many players for Street Brawl ({_seats.Count}, at most {_config.MaxPlayersStreetBrawl}) - playing Standard."));
         }
-        Log($"VOTE RESULT standard={std} brawl={brawl} -> {_rules}");
+        _format = formatOpen ? TallyFormat(humans) : _forcedFormat;
+        _forcedFormat = Format.None;
+        Log($"VOTE RESULT standard={std} brawl={brawl} -> {_rules}, format {_format}");
 
-        Chat.PrintToChatAll(L($"[Draft] Правила: {RulesName(_rules)} ({std}:{brawl}).", $"[Draft] Rules: {RulesName(_rules)} ({std}:{brawl})."));
+        Chat.PrintToChatAll(L($"[Draft] Правила: {RulesName(_rules)} ({std}:{brawl}). Формат: {FormatName(_format, true)} — {FormatHint(_format, true)}.",
+            $"[Draft] Rules: {RulesName(_rules)} ({std}:{brawl}). Format: {FormatName(_format, false)} - {FormatHint(_format, false)}."));
+        float countdown = StartDelaySeconds;
+        if (_format == Format.Chaos && _kits.Count == 0)
+        {
+            // Voted for, not typed: the heroes are handed out now and need a moment to land before the match starts.
+            try { AssignChaos(); countdown = ChaosStartSeconds; }
+            catch (CommandException ex)
+            {
+                Log($"chaos is not possible ({ex.Message}): falling back to the draft");
+                Chat.PrintToChatAll(L("[Draft] Для Хаоса не хватает героев или способностей — будет драфт.", "[Draft] Not enough heroes or abilities for Chaos - drafting instead."));
+                _format = Format.Draft;
+            }
+        }
+        else if (_format == Format.Shuffle) AssignShuffleKits();
         // The draft runs on the stock Street Brawl screen once the match is up; the text menu is the fallback when it
-        // cannot. Kits that are already there (/chaos) need no draft at all.
-        if (Native.Ready || _kits.Count > 0) BeginCountdown();
+        // cannot. Kits that are already there (Chaos, Shuffle) need no draft at all.
+        if (Native.Ready || _kits.Count > 0) BeginCountdown(countdown);
         else BeginTextDraft();
     }
 
@@ -540,9 +572,17 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         if (!_seats.TryGetValue(caller.Slot, out var s) || !Pick(s, offer - 1)) throw new CommandException("Nothing to pick.");
     }
 
-    [Command("reroll", "rr", Description = "Draft: replace offer 1-3 (2 per offer)")]
-    public void CmdReroll(CCitadelPlayerController caller, int offer)
+    [Command("reroll", "rr", Description = "Draft: new cards, the same as the Reroll button (text menu: /reroll 1-3 replaces one offer)")]
+    public void CmdReroll(CCitadelPlayerController caller, int offer = 0)
     {
+        // On the stock draft screen: what its Reroll button does, for when the button cannot be reached.
+        if (_native.TryGetValue(caller.Slot, out var ns) && ns.Round < Slots && ns.Offer[0] != null && caller.GetHeroPawn() is { } pawn)
+        {
+            if (pawn.GetCurrency(ECurrencyType.EItemDraftRerolls) <= 0) throw new CommandException(ns.Ru ? "Прокрутки на этот выбор закончились." : "No rerolls left for this pick.");
+            Log($"native slot {ns.Slot} round {ns.Round + 1}: /reroll");
+            RerollNow(ns, pawn);
+            return;
+        }
         if (!_seats.TryGetValue(caller.Slot, out var s) || !Reroll(s, offer - 1)) throw new CommandException("No rerolls left for that offer.");
     }
 

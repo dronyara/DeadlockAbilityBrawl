@@ -38,7 +38,7 @@ A server-side Deadworks plugin: players draft four abilities from other heroes o
 draft screen, then play Standard or Street Brawl. Players need to install nothing; an optional client
 addon (clientside/pak01_dir.vpk in the repository) adds mouse picks and a working TAB upgrade view.
 
-Built and tested against Deadlock build {build or "?"} with Deadworks v0.5.4.
+Built and tested against Deadlock build {build or "?"} with Deadworks v0.6.0.
 
 INSTALL (the server owner only)
 1. Deadlock installed from Steam (or a separate copy through SteamCMD, app 1422450).
@@ -56,7 +56,9 @@ PLAY
   connect <server ip>:27067  (forward UDP/TCP 27067 on the router).
 - Pick heroes; a hero somebody already has cannot be picked. The lobby leader (first player in) types /draft
   in chat - or /chaos, which gives everyone a random hero and four random abilities with no picks.
-- Vote for the rules by typing 1 (Standard) or 2 (Street Brawl) in chat.
+- Everyone votes by typing a digit in chat. Rules: 1 Standard, 2 Street Brawl. Format: 3 Draft, 4 Chaos (random
+  heroes and abilities), 5 Shuffle (your hero, random abilities, and an ability is replaced by another random one
+  a second after you use it). /chaos instead of /draft skips the format vote.
 - The match starts and the draft screen opens with ability cards. Take a card by typing 1, 2 or 3 in chat
   (left, top, right). Four picks, the last one is the ultimate; three rerolls per pick with the Reroll button.
   With the client addon, type /vpk before the draft and click the cards instead.
@@ -81,6 +83,7 @@ start. The file explains itself; in short:
   "DraftTimeLimit": 0              seconds the draft waits for a player before picking for them; 0 - no limit
   "PregameSeconds": 10             Standard: countdown behind the spawn walls before the match starts
   "Logging": true                  false - no plugin lines in the server console or in its log file
+  "ShuffleSeconds": 1              Shuffle format: seconds between using an ability and getting a new one
 
 CLIENT ADDON (optional, for each player who wants it)
 clientside/pak01_dir.vpk in the repository, with install notes next to it. It must match the game build and is

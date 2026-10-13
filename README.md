@@ -14,13 +14,19 @@ addon ([`clientside/`](clientside)) adds mouse picks on the draft screen and a w
 1. Somebody starts the server. Players open the Deadlock console and type `connect <ip>:27067`, then pick heroes
    (the usual way, or `/hero haze` and `/team amber|sapphire` in chat). A hero somebody already has cannot be picked.
 2. The **lobby leader** (the first player who joined) types **`/draft`** in chat.
-   Or **`/chaos`**: everyone gets a random hero and four random abilities, nobody picks anything.
-3. Rules vote: type **1** for Standard or **2** for Street Brawl in chat. 25 seconds; a tie goes to the leader's
-   vote, otherwise to Standard.
+3. Everyone votes, 25 seconds, by typing a digit in chat. A tie goes to the leader's vote.
+   - **Rules**: **1** Standard, **2** Street Brawl.
+   - **Format**: **3** Draft (everyone picks four abilities), **4** Chaos (a random hero and four random
+     abilities, nobody picks anything), **5** Shuffle (your own hero and four random abilities; a second after
+     you use an ability it is replaced by another random one, which takes over the rest of its cooldown).
+
+   Players with the client addon get the same vote as a panel with buttons. `/chaos` instead of `/draft` skips
+   the format vote and goes straight to Chaos.
 4. The match starts and the **stock Street Brawl draft screen opens with ability cards**. Four picks, the last one
    is the ultimate, with three rerolls per pick on the stock Reroll button.
    **Take a card by typing its number in chat: Enter → `1`, `2` or `3` → Enter (left, top, right).** The message is
-   not shown to anyone. With the client addon and `/vpk` a card can simply be clicked.
+   not shown to anyone. With the client addon and `/vpk` a card can simply be clicked. `/reroll` in chat does
+   what the Reroll button does.
 5. Street Brawl: after the fourth ability the same screen goes on to the usual items, and the match continues as
    Street Brawl.
    Standard: once everyone has four abilities the map reloads into a normal match, and the plugin puts every player
@@ -84,7 +90,8 @@ map start and on `/draft`:
   "SecondsAfterMatch": 20,
   "DraftTimeLimit": 0,
   "PregameSeconds": 10,
-  "Logging": true
+  "Logging": true,
+  "ShuffleSeconds": 1
 }
 ```
 - `Blacklist` — abilities that are never offered. Use the internal name or the English or Russian name; all of them
@@ -101,6 +108,7 @@ map start and on `/draft`:
 - `PregameSeconds` — Standard rules: seconds everyone waits behind the spawn walls before the match starts.
 - `Logging` — `false`: the plugin writes nothing to the server console or to `abilitydraft.log` in `%TEMP%`. Leave
   it on while something is being looked into: the log is what a bug report needs.
+- `ShuffleSeconds` — Shuffle format: seconds between using an ability and getting another one in its place.
 
 ## Optional client addon
 [`clientside/pak01_dir.vpk`](clientside) is ready to install; [`clientside/README.md`](clientside/README.md) says
@@ -143,9 +151,14 @@ Deadworks stops starting until its next release, and the plugin's own signatures
   Players who stay to the end are not affected: the plugin sets the mode back the moment the match is decided.
 - **With no draft time limit one idle player holds everyone up.** Set `DraftTimeLimit`, or the lobby leader types
   `/newdraft`.
-- v1.0 was played by a lobby of six. v1.1 (build 6774, Deadworks v0.5.4) was played by one player with bots: the
-  spawn walls and the draft without a clock were seen in game; the mode reset at the end of a match was checked
-  on the server only.
+- **The server needs Deadworks v0.6.0 or newer, and the client addon must be the one from this version.** An addon
+  from v1.1.1 or older carries the previous Deadworks UI bridge; with a v0.6.0 server a client with it was reported
+  to crash on respawn.
+- **Shuffle:** passive abilities never change (they are never used), and an item attached to an ability is left
+  without its ability when that ability is swapped.
+- v1.0 was played by a lobby of six. v1.2 (build 6774, Deadworks v0.6.0) was played by one player with bots: the
+  vote panel, Shuffle with real casts and dying and respawning with the addon were seen in game; `/reroll` and
+  Chaos chosen by vote were checked with bots only.
 
 ## What is inside
 - `AbilityDraft/` — the plugin (C#): `DraftPlugin.cs` (phases, vote, the text-menu draft), `NativeDraft.cs` (the

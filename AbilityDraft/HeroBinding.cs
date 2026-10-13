@@ -121,6 +121,8 @@ public sealed partial class DraftPlugin
         c.GetHeroPawn() is { } pawn && _heroOwner.TryGetValue(pawn.HeroID, out int owner) && owner == c.Slot;
 
     /// <summary>Writes one drafted ability into the hero's own table, if this player may have the hero's table.</summary>
+    static readonly Dictionary<string, IntPtr> _boundNames = new();
+
     bool BindHeroSlot(Heroes hero, int playerSlot, int slot, string ability)
     {
         if (hero == 0 || _heroOwner.TryGetValue(hero, out int owner) && owner != playerSlot) return false;
@@ -134,8 +136,9 @@ public sealed partial class DraftPlugin
         _heroOriginal.TryAdd((hero, slot), StringAt(Marshal.ReadIntPtr(node, NodeName))!);
         uint token = MurmurHash2.HashLowerCase(ability, TokenSeed);
         if ((uint)Marshal.ReadInt32(node, NodeToken) == token) return true;
-        // The engine keeps pointing at this string, so it is never freed (a few bytes per pick).
-        Marshal.WriteIntPtr(node, NodeName, Marshal.StringToHGlobalAnsi(ability));
+        // The engine keeps pointing at this string, so it is never freed: one copy per ability name.
+        if (!_boundNames.TryGetValue(ability, out var text)) _boundNames[ability] = text = Marshal.StringToHGlobalAnsi(ability);
+        Marshal.WriteIntPtr(node, NodeName, text);
         Marshal.WriteInt32(node, NodeToken, (int)token);
         return true;
     }

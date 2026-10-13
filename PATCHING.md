@@ -114,6 +114,10 @@ To look at the memory, write `herodata Inferno 160` into `%TEMP%\abilitydraft.cm
 with `peek <address> 640`: ability names show up next to their slots.
 
 ## 8. The client addon
+The addon also carries Deadworks' UI bridge, which changes with Deadworks itself: a server on a newer Deadworks
+and a client with an older bridge do not get along (v0.6.0 with the bridge of v0.5.x: the client crashed on
+respawn). After updating Deadworks, delete `data/deadworks-bootstrap.vpk` and rebuild the addon.
+
 `clientside/pak01_dir.vpk` carries a copy of the game's ability data and goes stale with every patch that touches
 items or abilities. Rebuild it (`tools/build_cards.py`, see the README), copy the result over
 `clientside/pak01_dir.vpk` and update the build number in `clientside/README.md`.

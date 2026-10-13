@@ -150,6 +150,14 @@ public sealed partial class DraftPlugin
             case "vote":
                 CastVote(int.Parse(a[0]), a[1].StartsWith('b') ? Rules.StreetBrawl : Rules.Standard);
                 break;
+            case "panelui":
+                PanelUi = a.Length == 0 || a[0] != "0";
+                Log($"panels for clients with the UI bridge = {PanelUi}");
+                break;
+            case "forceformat":
+                _forcedFormat = ParseFormat(a[0]);
+                Log($"forced format = {_forcedFormat}");
+                break;
             case "forcevote":
                 // Bots do not vote; this stands in for a human majority in an all-bot test.
                 _forcedRules = a[0].StartsWith('b') ? Rules.StreetBrawl : Rules.Standard;
@@ -235,7 +243,7 @@ public sealed partial class DraftPlugin
                     Log($"cast slot={a[0]} ability={(pawn?.GetAbilityBySlot(slot) as CCitadelBaseAbility)?.AbilityName} -> {pawn?.ExecuteAbilityBySlot(slot)}");
                     break;
                 }
-            case "brawl" or "brawlnext" or "mods" or "named" or "input" or "endtime" or "walls" or "nobot" or "npick" or "kill" or "ds" or "closedraft" or "hurtents":
+            case "brawl" or "brawlnext" or "mods" or "named" or "input" or "endtime" or "walls" or "nobot" or "npick" or "kill" or "ds" or "closedraft" or "hurtents" or "cds" or "usecd":
                 BrawlBridge(cmd, a);
                 break;
             default:

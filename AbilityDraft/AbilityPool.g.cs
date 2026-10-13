@@ -173,4 +173,50 @@ public static partial class AbilityPool
 
     // Heroes that cannot be picked yet; only their abilities are in the pool.
     public static readonly string[] Unreleased = [];
+
+    // The small portrait of each hero, for the vote panel.
+    public static readonly Dictionary<string, string> HeroIcons = new()
+    {
+        ["hero_astro"] = "file://{images}/heroes/astro_sm.psd",
+        ["hero_atlas"] = "file://{images}/heroes/bull_sm.psd",
+        ["hero_baba"] = "file://{images}/heroes/baba_sm.psd",
+        ["hero_bebop"] = "file://{images}/heroes/bebop_sm.psd",
+        ["hero_bookworm"] = "file://{images}/heroes/bookworm_sm.psd",
+        ["hero_chessmaster"] = "file://{images}/heroes/chessmaster_sm.psd",
+        ["hero_chrono"] = "file://{images}/heroes/chrono_sm.psd",
+        ["hero_doorman"] = "file://{images}/heroes/doorman_sm.psd",
+        ["hero_drifter"] = "file://{images}/heroes/drifter_sm.psd",
+        ["hero_dynamo"] = "file://{images}/heroes/sumo_sm.psd",
+        ["hero_familiar"] = "file://{images}/heroes/familiar_sm.psd",
+        ["hero_fencer"] = "file://{images}/heroes/fencer_sm.psd",
+        ["hero_forge"] = "file://{images}/heroes/engineer_sm.psd",
+        ["hero_frank"] = "file://{images}/heroes/frank_sm.psd",
+        ["hero_ghost"] = "file://{images}/heroes/spectre_sm.psd",
+        ["hero_gigawatt"] = "file://{images}/heroes/gigawatt_sm.psd",
+        ["hero_haze"] = "file://{images}/heroes/haze_sm.psd",
+        ["hero_hornet"] = "file://{images}/heroes/hornet_sm.png",
+        ["hero_inferno"] = "file://{images}/heroes/inferno_sm.psd",
+        ["hero_kelvin"] = "file://{images}/heroes/kelvin_sm.psd",
+        ["hero_krill"] = "file://{images}/heroes/digger_sm.psd",
+        ["hero_lash"] = "file://{images}/heroes/lash_sm.psd",
+        ["hero_magician"] = "file://{images}/heroes/magician_sm.psd",
+        ["hero_mirage"] = "file://{images}/heroes/mirage_sm.psd",
+        ["hero_nano"] = "file://{images}/heroes/nano_sm.psd",
+        ["hero_necro"] = "file://{images}/heroes/necro_sm.psd",
+        ["hero_orion"] = "file://{images}/heroes/archer_sm.psd",
+        ["hero_priest"] = "file://{images}/heroes/priest_sm.psd",
+        ["hero_punkgoat"] = "file://{images}/heroes/punkgoat_sm.psd",
+        ["hero_ratking"] = "file://{images}/heroes/ratking_sm.psd",
+        ["hero_shiv"] = "file://{images}/heroes/shiv_sm.psd",
+        ["hero_synth"] = "file://{images}/heroes/synth_sm.psd",
+        ["hero_tengu"] = "file://{images}/heroes/tengu_sm.psd",
+        ["hero_unicorn"] = "file://{images}/heroes/unicorn_sm.psd",
+        ["hero_vampirebat"] = "file://{images}/heroes/vampirebat_sm.psd",
+        ["hero_viper"] = "file://{images}/heroes/kali_sm.psd",
+        ["hero_viscous"] = "file://{images}/heroes/viscous_sm.psd",
+        ["hero_warden"] = "file://{images}/heroes/warden_sm.psd",
+        ["hero_werewolf"] = "file://{images}/heroes/werewolf_sm.psd",
+        ["hero_wraith"] = "file://{images}/heroes/wraith_sm.psd",
+        ["hero_yamato"] = "file://{images}/heroes/yamato_sm.psd",
+    };
 }

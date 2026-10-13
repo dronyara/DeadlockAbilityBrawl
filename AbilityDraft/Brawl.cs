@@ -176,6 +176,22 @@ public sealed partial class DraftPlugin
             case "ds":
                 LogDraftStates();
                 break;
+            case "usecd":
+                // usecd <slot> <ability 1-4> [seconds]: start a cooldown as a real use would (bots do not cast)
+                if (Players.FromSlot(int.Parse(a[0]))?.GetHeroPawn()?.GetAbilityBySlot((EAbilitySlot)(int.Parse(a[1]) - 1)) is CCitadelBaseAbility used)
+                {
+                    used.CooldownStart = Now;
+                    used.CooldownEnd = Now + (a.Length > 2 ? float.Parse(a[2], System.Globalization.CultureInfo.InvariantCulture) : 20f);
+                    Log($"  {used.AbilityName} put on cooldown until {used.CooldownEnd:F1}");
+                }
+                break;
+            case "cds":
+                // cooldown state of every drafted ability, for the Shuffle format
+                foreach (var pawn in Players.GetAllPawns())
+                    for (int i = 0; i < Slots; i++)
+                        if (pawn.GetAbilityBySlot((EAbilitySlot)i) is CCitadelBaseAbility ab)
+                            Log($"  cd slot={pawn.Controller?.Slot} {i + 1} {ab.AbilityName} now={Now:F1} start={ab.CooldownStart:F1} end={ab.CooldownEnd:F1} on={ab.IsOnCooldown} charges={ab.RemainingCharges}/{ab.MaxCharges} chan={ab.IsChanneling} toggle={ab.ToggleState} bits={ab.UpgradeBits}");
+                break;
             case "input":
                 // input <entity name> <input> [value]
                 foreach (var e in Entities.ByName(a[0])) e.AcceptInput(a[1], value: a.Length > 2 ? a[2] : null);
