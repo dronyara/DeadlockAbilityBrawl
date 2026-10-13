@@ -46,6 +46,7 @@ UNRELEASED = set()
 ab = blocks(abil)
 rows = []
 skipped = []
+icons = {}
 for hero, b in blocks(heroes).items():
     if not hero.startswith("hero_") or hero in ("hero_base", "hero_targetdummy", "hero_genericperson"):
         continue
@@ -56,6 +57,7 @@ for hero, b in blocks(heroes).items():
     if None in sig:
         skipped.append(hero)
         continue
+    icons[hero] = field(b, "m_strIconImageSmall")
     en = names["english"].get(hero + ":n", hero[5:].title())
     ru = re.sub(r"^#\|\w\|#", "", names["russian"].get(hero + ":n", en))
     for i, a in enumerate(sig):
@@ -71,5 +73,10 @@ with io.open(out, "w", encoding="utf-8", newline="\n") as f:
         f.write("        new(%s, %s, %s, %d, %s, %s, %s, %s, %s),\n" % (
             cs(r[0]), cs(r[1]), cs(r[2]), r[3], cs(r[4]), cs(r[5]), cs(r[6]), "true" if r[7] else "false", cs(r[8])))
     f.write("    ];\n\n    // Heroes that cannot be picked yet; only their abilities are in the pool.\n")
-    f.write("    public static readonly string[] Unreleased = [%s];\n}\n" % ", ".join(cs(h) for h in sorted(UNRELEASED)))
+    f.write("    public static readonly string[] Unreleased = [%s];\n\n" % ", ".join(cs(h) for h in sorted(UNRELEASED)))
+    f.write("    // The small portrait of each hero, for the vote panel.\n    public static readonly Dictionary<string, string> HeroIcons = new()\n    {\n")
+    for hero in sorted(icons):
+        if icons[hero]:
+            f.write("        [%s] = %s,\n" % (cs(hero), cs(icons[hero])))
+    f.write("    };\n}\n")
 print(f"{len(rows)} abilities from {len(rows)//4} heroes; skipped (no kit): {skipped}")

@@ -164,8 +164,10 @@ BRIDGE_FILES = ("panorama/layout/hud_hideout.vxml_c", "panorama/scripts/dw_boots
 bridge_path = os.path.join(root, "data", "deadworks-bootstrap.vpk")
 if not os.path.exists(bridge_path):
     import bz2, hashlib, json, urllib.request
-    manifest = json.load(urllib.request.urlopen("https://api.deadworks.net/api/bootstrap", timeout=30))
-    bridge = bz2.decompress(urllib.request.urlopen(manifest["download_url"], timeout=120).read())
+    # The site turns away the default Python user agent.
+    fetch = lambda url, t: urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "curl/8"}), timeout=t)
+    manifest = json.load(fetch("https://api.deadworks.net/api/bootstrap", 30))
+    bridge = bz2.decompress(fetch(manifest["download_url"], 120).read())
     if hashlib.sha256(bridge).hexdigest() != manifest["sha256"]:
         raise SystemExit("the downloaded Deadworks bootstrap does not match its published checksum")
     open(bridge_path, "wb").write(bridge)

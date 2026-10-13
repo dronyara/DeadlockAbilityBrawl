@@ -31,10 +31,10 @@ public sealed partial class DraftPlugin
 
     bool _panelWired;
 
-    // The plugin's own draft and vote panels have never been run against a real client, and the optional addon now
-    // brings the UI bridge to players who would otherwise never have had it. Until the panels are tested they stay
-    // off: chat and the stock draft screen are the supported inputs.
-    const bool PanelUi = false;
+    // The panels are for players whose client has the Deadworks UI bridge: the optional addon brings it, and so does
+    // the Deadworks launcher. Everyone else gets the same choices in chat and as text in front of the hero.
+    // Bridge command "panelui 0|1" switches them off and on while the server runs.
+    static bool PanelUi = true;
 
     // The panel channel is only touched once a launcher client is actually present.
     bool HasUi(Seat s)
@@ -47,6 +47,7 @@ public sealed partial class DraftPlugin
             panel.On("pick", e => OnUiOffer(e, reroll: false));
             panel.On("reroll", e => OnUiOffer(e, reroll: true));
             panel.On("vote", e => { if (e.Caller != null) CastVote(e.Caller.Slot, e.ArgAt(0) == "brawl" ? Rules.StreetBrawl : Rules.Standard); });
+            panel.On("format", e => { if (e.Caller != null) CastFormat(e.Caller.Slot, ParseFormat(e.ArgAt(0) ?? "")); });
             UI.ClientResync += OnClientResync;
         }
         return true;
@@ -143,31 +144,126 @@ public sealed partial class DraftPlugin
     {
         var c = Players.FromSlot(s.Slot);
         if (c == null) return;
-        if (s.Vote == Rules.None)
-            Chat.PrintToChat(c, s.Ru
-                ? "[Draft] Правила матча: клавиша 1 — Standard, клавиша 2 — Street Brawl (или /vote standard, /vote brawl)"
-                : "[Draft] Match rules: key 1 = Standard, key 2 = Street Brawl (or /vote standard, /vote brawl)");
+        bool ru = s.Ru, formatOpen = _forcedFormat == Format.None;
+        if (!s.VoteExplained)
+        {
+            s.VoteExplained = true;
+            Chat.PrintToChat(c, ru
+                ? "[Draft] Правила: напиши в чат 1 — Standard, 2 — Street Brawl (или /vote standard, /vote brawl)"
+                : "[Draft] Rules: type 1 for Standard, 2 for Street Brawl (or /vote standard, /vote brawl)");
+            if (formatOpen)
+                Chat.PrintToChat(c, ru
+                    ? "[Draft] Формат: 3 — Драфт, 4 — Хаос (случайные герои и способности), 5 — Перетасовка (способность меняется после применения)"
+                    : "[Draft] Format: 3 - Draft, 4 - Chaos (random heroes and abilities), 5 - Shuffle (an ability changes after each use)");
+        }
+        Format[] formats = [Format.Draft, Format.Chaos, Format.Shuffle];
         if (!HasUi(s))
         {
-            string Mark(Rules r) => s.Vote == r ? "  ✔" : "";
-            SetBillboard(s, (s.Ru ? "ПРАВИЛА МАТЧА" : "MATCH RULES") + $"\n \n[1]  Standard{Mark(Rules.Standard)}\n[2]  Street Brawl{Mark(Rules.StreetBrawl)}");
+            string Mark(bool on) => on ? "  ✔" : "";
+            string text = (ru ? "ПРАВИЛА МАТЧА" : "MATCH RULES") + $"\n \n[1]  Standard{Mark(s.Vote == Rules.Standard)}\n[2]  Street Brawl{Mark(s.Vote == Rules.StreetBrawl)}";
+            if (formatOpen)
+                text += "\n \n" + (ru ? "ФОРМАТ" : "FORMAT") + "\n \n" + string.Join("\n", formats.Select((f, n) => $"[{n + 3}]  {FormatName(f, ru)}{Mark(s.FormatVote == f)}"));
+            SetBillboard(s, text);
             return;
         }
 
-        UIButton Choice(string id, string text, string arg, Rules r) =>
-            UI.Button(id, text, "vote", arg)
-                .WithStyles(("width", "340px"), ("height", "150px"), ("margin", "0px 14px"), ("border-radius", "10px"),
-                    ("background-color", s.Vote == r ? "#4f8a4a" : "#17140ff2"), ("border", "2px solid #b08d57"))
-                .WithHoverStyle("background-color", "#3d6b3a")
-                .WithTextStyles(("font-size", "34px"), ("color", "#f5e6c8"), ("horizontal-align", "center"), ("vertical-align", "center"));
-
         var to = RecipientFilter.Single(s.Slot);
-        UI.Panel(PanelId).BuildLayout(to, Frame(
-            UI.Label("ad_title", s.Ru ? "ПРАВИЛА МАТЧА" : "MATCH RULES").WithStyles(TitleStyle),
-            UI.Horizontal("ad_row").WithStyles(("horizontal-align", "center"), ("margin-top", "24px"))
-                .Add(Choice("ad_std", "Standard [1]", "standard", Rules.Standard), Choice("ad_brawl", "Street Brawl [2]", "brawl", Rules.StreetBrawl))));
+        UI.Panel(PanelId).BuildLayout(to, VoteLayout(s, formatOpen));
         if (!s.PanelUp) UI.Panel(PanelId).RequestCursor(to);
         s.PanelUp = true;
+    }
+
+    /// <summary>Everybody's panel again: a vote shows up under its tile on every screen.</summary>
+    void RefreshVote()
+    {
+        foreach (var s in _seats.Values.Where(s => !s.Bot)) ShowVote(s);
+    }
+
+    // The vote as a window: a header bar, the rules on the left under the amber team's colour, the formats on the
+    // right under the sapphire team's, and under every tile the portraits of the heroes who voted for it.
+    const string VoteDark = "#16130ff7", VoteLine = "#3b352c", VoteText = "#e9e2d2", VoteDim = "#8f8777";
+    const string VoteAmber = "#8a5718", VoteSapphire = "#27406f", VoteChosen = "#d9a441";
+
+    UINode VoteLayout(Seat s, bool formatOpen)
+    {
+        bool ru = s.Ru;
+        var humans = _seats.Values.Where(x => !x.Bot).ToList();
+        int voted = humans.Count(x => x.Vote != Rules.None && (!formatOpen || x.FormatVote != Format.None));
+
+        UINode Voters(string id, IEnumerable<Seat> who)
+        {
+            var row = UI.Horizontal(id).WithStyles(("horizontal-align", "center"), ("height", "44px"), ("margin-top", "8px"));
+            int n = 0;
+            foreach (var seat in who)
+            {
+                string? icon = Players.FromSlot(seat.Slot)?.GetHeroPawn() is { } pawn && pawn.HeroID != 0
+                    ? AbilityPool.HeroIcons.GetValueOrDefault("hero_" + HeroKey(pawn.HeroID.ToHeroName())) : null;
+                if (icon != null)
+                    row.Add(UI.Image($"{id}_{n++}", icon).WithStyles(("width", "40px"), ("height", "40px"), ("margin", "0px 2px"),
+                        ("border-radius", "50%"), ("border", $"2px solid {(seat == s ? VoteChosen : VoteLine)}")));
+                else
+                    row.Add(UI.Label($"{id}_{n++}", "●").WithStyles(("font-size", "26px"), ("color", seat == s ? VoteChosen : VoteDim), ("margin", "0px 4px")));
+            }
+            return row;
+        }
+
+        UINode Tile(string id, int digit, string title, string hint, string action, string arg, bool mine, IEnumerable<Seat> who) =>
+            UI.Vertical(id).WithStyles(("width", "208px"), ("margin", "0px 6px")).Add(
+                UI.Button(id + "_b", $"{title}", action, arg)
+                    .WithStyles(("width", "100%"), ("height", "92px"), ("background-color", mine ? "#3a301c" : "#221e18"),
+                        ("border", $"2px solid {(mine ? VoteChosen : VoteLine)}"), ("border-radius", "3px"))
+                    .WithHoverStyle("background-color", "#40372a")
+                    .WithTextStyles(("font-size", "25px"), ("font-weight", "bold"), ("letter-spacing", "1px"), ("color", mine ? VoteChosen : VoteText),
+                        ("horizontal-align", "center"), ("vertical-align", "center"), ("text-transform", "uppercase")),
+                UI.Label(id + "_h", $"[{digit}]  {hint}").WithStyles(("font-size", "15px"), ("color", VoteDim), ("horizontal-align", "center"),
+                    ("text-align", "center"), ("margin-top", "6px"), ("height", "38px"), ("width", "100%"), ("white-space", "normal"), ("text-overflow", "clip")),
+                Voters(id + "_v", who));
+
+        UINode Group(string id, string title, string colour, params UINode[] tiles)
+        {
+            var row = UI.Horizontal(id + "_row").WithStyles(("margin", "14px 8px 10px 8px"));
+            row.Add(tiles);
+            return UI.Vertical(id).WithStyles(("margin", "0px 8px"), ("background-color", "#1d1913"), ("border", $"1px solid {VoteLine}")).Add(
+                UI.Container(id + "_head").WithStyles(("width", "100%"), ("height", "44px"), ("background-color", colour)).Add(
+                    UI.Label(id + "_title", title).WithStyles(("font-size", "22px"), ("font-weight", "bold"), ("letter-spacing", "2px"),
+                        ("color", "#ffffff"), ("margin-left", "14px"), ("vertical-align", "center"))),
+                row);
+        }
+
+        var groups = UI.Horizontal("ad_groups").WithStyles(("horizontal-align", "center"), ("margin", "18px 10px 6px 10px"));
+        groups.Add(Group("ad_rules", ru ? "ПРАВИЛА" : "RULES", VoteAmber,
+            Tile("ad_std", 1, "Standard", ru ? "обычный матч" : "the full match", "vote", "standard", s.Vote == Rules.Standard, humans.Where(x => x.Vote == Rules.Standard)),
+            Tile("ad_brawl", 2, "Street Brawl", ru ? "короткие раунды" : "short rounds", "vote", "brawl", s.Vote == Rules.StreetBrawl, humans.Where(x => x.Vote == Rules.StreetBrawl))));
+        if (formatOpen)
+        {
+            Format[] formats = [Format.Draft, Format.Chaos, Format.Shuffle];
+            groups.Add(Group("ad_formats", ru ? "ФОРМАТ" : "FORMAT", VoteSapphire, formats.Select((f, n) =>
+                Tile($"ad_format{n}", n + 3, FormatName(f, ru), FormatHint(f, ru), "format", f.ToString().ToLowerInvariant(), s.FormatVote == f, humans.Where(x => x.FormatVote == f))).ToArray()));
+        }
+
+        (string, string)[] caps = [("font-size", "16px"), ("color", VoteDim), ("letter-spacing", "1px"), ("vertical-align", "center"), ("margin-left", "22px")];
+        var header = UI.Horizontal("ad_header").WithStyles(("width", "100%"), ("height", "50px"), ("background-color", "#0d0b09"), ("border-bottom", $"1px solid {VoteLine}")).Add(
+            UI.Label("ad_title", "ABILITY BRAWL").WithStyles(("font-size", "24px"), ("font-weight", "bold"), ("letter-spacing", "3px"), ("color", "#ffffff"),
+                ("vertical-align", "center"), ("margin-left", "18px")),
+            UI.Label("ad_stage", ru ? "ГОЛОСОВАНИЕ" : "VOTE").WithStyles(caps),
+            UI.Label("ad_count", ru ? $"ПРОГОЛОСОВАЛО {voted}/{humans.Count}" : $"{voted}/{humans.Count} VOTED").WithStyles(caps),
+            UI.Label("ad_timer", VoteClock()).WithStyles(caps).WithStyles(("color", VoteChosen)));
+
+        var window = UI.Vertical("ad_window").WithStyles(("horizontal-align", "center"), ("vertical-align", "center"),
+            ("background-color", VoteDark), ("border", $"1px solid {VoteLine}"), ("box-shadow", "#000000cc 0px 0px 24px 0px")).Add(
+            header,
+            groups,
+            UI.Label("ad_foot", ru
+                ? "Нажми на плитку или напиши её цифру в чат. При равенстве решает голос лидера лобби."
+                : "Click a tile or type its digit in chat. A tie goes to the lobby leader's vote.")
+                .WithStyles(("font-size", "16px"), ("color", VoteDim), ("margin", "6px 18px 14px 18px")));
+        return UI.Container("ad_root").WithStyles(("width", "100%"), ("height", "100%"), ("background-color", "#00000099")).Add(window);
+    }
+
+    string VoteClock()
+    {
+        int left = Math.Max(0, (int)MathF.Ceiling(_phaseEnd - Now));
+        return $"{left / 60}:{left % 60:00}";
     }
 
     // ---- world-text menu for clients without the panel ----------------------------------------------------------

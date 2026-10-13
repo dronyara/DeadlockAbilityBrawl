@@ -460,8 +460,15 @@ public sealed partial class DraftPlugin
     public override HookResult OnChatMessage(ChatMessage message)
     {
         var text = message.ChatText.Trim();
-        if (text.Length != 1 || text[0] < '1' || text[0] > '3') return HookResult.Continue;
+        if (text.Length != 1 || text[0] < '1' || text[0] > '5') return HookResult.Continue;
         int choice = text[0] - '1', slot = message.SenderSlot;
+        if (choice >= Offers)
+        {
+            // 4 and 5 only mean something in the vote (3 as well, handled below): there they pick the format.
+            if (_phase != Phase.Voting || !_seats.ContainsKey(slot)) return HookResult.Continue;
+            CastFormat(slot, choice == 3 ? Format.Chaos : Format.Shuffle);
+            return HookResult.Stop;
+        }
 
         if (_native.TryGetValue(slot, out var ns) && !ns.Bot && ns.Round < Slots && ns.Offer[0] != null)
         {
@@ -471,6 +478,7 @@ public sealed partial class DraftPlugin
         if (_seats.TryGetValue(slot, out var s) && !s.Bot)
         {
             if (_phase == Phase.Voting && choice < 2) { CastVote(slot, choice == 0 ? Rules.Standard : Rules.StreetBrawl); return HookResult.Stop; }
+            if (_phase == Phase.Voting) { CastFormat(slot, Format.Draft); return HookResult.Stop; }
             if (_phase == Phase.Drafting && Pick(s, choice)) return HookResult.Stop;
         }
         return HookResult.Continue;

@@ -98,6 +98,17 @@ public sealed partial class DraftPlugin
     void StartChaos()
     {
         LoadConfig();
+        AssignChaos();
+        _forcedFormat = Format.Chaos;
+        Announce("CHAOS", L("Случайные герои и способности", "Random heroes and abilities"));
+        StartVote();
+    }
+
+    const float ChaosStartSeconds = 10f;        // the countdown when Chaos was voted for: the new heroes have to land
+
+    /// <summary>A random hero and four random abilities for everyone on the server.</summary>
+    void AssignChaos()
+    {
         var players = Players.GetAll().ToList();
         if (players.Count == 0) throw new CommandException("Nobody is here.");
 
@@ -110,6 +121,8 @@ public sealed partial class DraftPlugin
         Shuffle(normals);
         Shuffle(ults);
 
+        var russian = _seats.Values.Where(s => s.Ru).Select(s => s.Slot).ToHashSet();       // /lang choices made before the vote
+        bool hadSeats = _seats.Count > 0;
         _seats.Clear();
         _kits.Clear();
         _native.Clear();
@@ -124,7 +137,7 @@ public sealed partial class DraftPlugin
             var c = players[i];
             var kit = normals.Skip(i * (Slots - 1)).Take(Slots - 1).Append(ults[i]).ToArray();
             var names = kit.Select(a => a.Name).ToArray();
-            var seat = new Seat { Slot = c.Slot, Bot = c.IsBot, Round = Slots };
+            var seat = new Seat { Slot = c.Slot, Bot = c.IsBot, Round = Slots, Ru = hadSeats ? russian.Contains(c.Slot) : _ru };
             names.CopyTo(seat.Kit, 0);
             _seats[c.Slot] = seat;
             _kits[c.Slot] = names;
@@ -139,8 +152,6 @@ public sealed partial class DraftPlugin
                 Chat.PrintToChat(c, "[Draft] " + heroes[i].ToDisplayName() + ": " + string.Join(", ", kit.Select(a => a.Title(seat.Ru))));
             Log($"chaos slot {c.Slot} ({c.PlayerName}): {heroes[i]} [{string.Join(", ", names)}]");
         }
-        Announce("CHAOS", L("Случайные герои и способности", "Random heroes and abilities"));
-        StartVote();
     }
 
     // A hero change does not always land (a team change may still be in flight), and a few heroes cannot be selected

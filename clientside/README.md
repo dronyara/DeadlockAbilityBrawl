@@ -58,7 +58,7 @@ To remove it, delete the VPK. / Чтобы убрать аддон, удалит
 |---|---|
 | `scripts/abilities.vdata_c` | The game's ability and item data (© Valve) plus one item per draftable ability, built by `tools/build_cards.py` |
 | `resource/localization/citadel_gc_mod_names/*` | The game's item names (© Valve) plus the names of those items |
-| `panorama/layout/hud_hideout.vxml_c`, `panorama/scripts/dw_bootstrap.vjs_c`, `panorama/scripts/dw_addon.vjs_c` | The Deadworks UI bridge, unchanged, from Deadworks' client bootstrap v7. Scripts under GPL-3.0; source: [`client-bootstrap`](https://github.com/Deadworks-net/deadworks/tree/v0.5.3/client-bootstrap) |
+| `panorama/layout/hud_hideout.vxml_c`, `panorama/scripts/dw_bootstrap.vjs_c`, `panorama/scripts/dw_addon.vjs_c` | The Deadworks UI bridge, unchanged, from Deadworks' client bootstrap v8. Scripts under GPL-3.0; source: [`client-bootstrap`](https://github.com/Deadworks-net/deadworks/tree/v0.6.0/client-bootstrap) |
 | `panorama/layout/abilitydraft_*.vxml_c`, `panorama/scripts/abilitydraft_hud.vjs_c`, `panorama/styles/abilitydraft_click.vcss_c` | This project's own script, layouts and style; source in [`addon/`](../addon) |
 
-SHA-256: `7d968e7069e8cea29f9b9d73b1eac39a29dc6f5a0ce03e71f62740f587874df0`
+SHA-256: `85d6f6dd1ec6099af3bc0a97d8e34129c9ec8916823f0251b0d343f933df0f1d`
