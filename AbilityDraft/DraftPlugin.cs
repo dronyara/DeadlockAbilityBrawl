@@ -17,7 +17,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     const int Slots = 4;                 // Signature1..4; the last one is the ultimate
     const int Offers = 3;
     const int RerollsPerOffer = 2;
-    const float VoteSeconds = 15f;          // for each step of the vote
+    static float VoteSeconds = 15f;         // for each step of the vote (bridge command "votetime" changes it)
     const float StartDelaySeconds = 5f;
     const float BotThinkSeconds = 1.5f;
 
@@ -121,6 +121,10 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _shuffleSince.Clear();
         _lobbyPreset = null;
         _lobbyPanelShown = "";
+        _lobbyNextLook = 0;         // the game clock starts again with the map; a time from the last one is far ahead
+        _nextTimerText = 0;
+        _chaosCheckAt = 0;
+        _emptySince = -1f;
         _kitsShown = false;
         _itemDeals.Clear();
         _loggedBrawlState = 0;

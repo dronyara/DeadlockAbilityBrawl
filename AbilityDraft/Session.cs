@@ -126,6 +126,8 @@ public sealed partial class DraftPlugin
 
         var russian = _seats.Values.Where(s => s.Ru).Select(s => s.Slot).ToHashSet();       // /lang choices made before the vote
         bool hadSeats = _seats.Count > 0;
+        // The seats are made anew below; a panel still up for an old one (the vote) would never be taken down.
+        foreach (var old in _seats.Values) HidePanel(old);
         _seats.Clear();
         _kits.Clear();
         _native.Clear();
