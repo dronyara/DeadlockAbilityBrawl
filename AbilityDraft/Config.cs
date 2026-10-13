@@ -29,6 +29,16 @@ public sealed partial class DraftPlugin
         public bool Logging { get; set; } = true;
         /// <summary>Shuffle format: seconds between using an ability and getting another one in its place.</summary>
         public float ShuffleSeconds { get; set; } = 1f;
+        /// <summary>Shuffle format: a passive ability is swapped after this many seconds. 0 = passives stay.</summary>
+        public float ShufflePassiveSeconds { get; set; } = 30f;
+        /// <summary>Shuffle format under Street Brawl rules: weapon items are kept out of the item draft.</summary>
+        public bool ShuffleNoWeaponItems { get; set; } = true;
+        /// <summary>Also log every client command and key press. Large: for hunting a bug, not for everyday play.</summary>
+        public bool Trace { get; set; } = false;
+        /// <summary>Record every finished match in AbilityDraft.stats.jsonl (heroes, kits, the winner; no names).</summary>
+        public bool Stats { get; set; } = true;
+        /// <summary>Named bundles of settings for /preset.</summary>
+        public Dictionary<string, Preset> Presets { get; set; } = new();
     }
 
     ConfigFile _config = new();
@@ -66,13 +76,16 @@ public sealed partial class DraftPlugin
             string text = File.ReadAllText(ConfigPath);
             var config = JsonSerializer.Deserialize<ConfigFile>(text, ConfigJson) ?? new ConfigFile();
             // A config written by an older version: add the settings it does not have yet, keep the ones it has.
-            if (!text.Contains(nameof(ConfigFile.ShuffleSeconds), StringComparison.OrdinalIgnoreCase)) WriteConfig(config);
+            if (!text.Contains(nameof(ConfigFile.Presets), StringComparison.OrdinalIgnoreCase)) WriteConfig(config);
+            var preset = ActivePreset(config);
+            if (preset != null) ApplyPreset(config, preset);
             _config = config;
+            _trace = config.Trace;
             _ru = config.Language.Trim().StartsWith("ru", StringComparison.OrdinalIgnoreCase);
             if (_logging && !config.Logging) Log("config: logging is switched off from here on");
             _logging = config.Logging;
             var unknown = new List<string>();
-            foreach (var entry in config.Blacklist.Select(e => e.Trim()).Where(e => e.Length > 0))
+            foreach (var entry in (preset?.Blacklist ?? config.Blacklist).Select(e => e.Trim()).Where(e => e.Length > 0))
             {
                 var hits = AbilityPool.All.Where(a =>
                     a.Name.Equals(entry, StringComparison.OrdinalIgnoreCase) ||
@@ -106,6 +119,14 @@ public sealed partial class DraftPlugin
             "// PregameSeconds: Standard rules - seconds everyone waits behind the spawn walls before the match starts.\n" +
             "// Logging: false - the plugin writes nothing to the server console or to its log file in %TEMP%.\n" +
             "// ShuffleSeconds: Shuffle format - seconds between using an ability and getting another one in its place.\n" +
+            "// ShufflePassiveSeconds: Shuffle format - a passive ability is swapped after this many seconds. 0 - never.\n" +
+            "// ShuffleNoWeaponItems: Shuffle under Street Brawl rules - no weapon items in the item draft.\n" +
+            "// Trace: true - also log every client command and key press (a large log; for hunting a bug).\n" +
+            "// Stats: true - one line per finished match in AbilityDraft.stats.jsonl; /stats reads it.\n" +
+            "// Presets: named settings for /preset <name>, for example\n" +
+            "//   \"Presets\": { \"brawl shuffle\": { \"Rules\": \"brawl\", \"Format\": \"shuffle\", \"ShuffleSeconds\": 0 } }\n" +
+            "//   Rules: standard | brawl | vote. Format: draft | chaos | shuffle | vote. A preset may also set\n" +
+            "//   Blacklist, DraftTimeLimit, ShuffleSeconds, ShufflePassiveSeconds and ShuffleNoWeaponItems.\n" +
             JsonSerializer.Serialize(config, ConfigJson) + "\n", new UTF8Encoding(false));
 
     /// <summary>A plain list of every ability name the blacklist accepts, kept next to the config for the host.</summary>

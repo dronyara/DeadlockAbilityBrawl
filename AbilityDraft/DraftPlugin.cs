@@ -17,7 +17,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     const int Slots = 4;                 // Signature1..4; the last one is the ultimate
     const int Offers = 3;
     const int RerollsPerOffer = 2;
-    const float VoteSeconds = 25f;
+    const float VoteSeconds = 15f;          // for each step of the vote
     const float StartDelaySeconds = 5f;
     const float BotThinkSeconds = 1.5f;
 
@@ -80,6 +80,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         Server.RemoveEngineLogListener(OnEngineLog);
         foreach (var s in _seats.Values) HidePanel(s);
         if (_panelWired) UI.ClientResync -= OnClientResync;
+        if (_lobbyWired) UI.ClientResync -= LobbyResync;
         RestoreHeroTables();
     }
 
@@ -102,9 +103,11 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         Server.ExecuteCommand("sv_hibernate_when_empty 0");
         Server.ExecuteCommand($"{BrawlCvar} 0");          // every map starts as a Standard lobby; the vote decides
         Server.ExecuteCommand($"{ActiveLaneCvar} 0");
+        if (!(_phase == Phase.Restoring && _restore.Count > 0)) _preset = null;      // a new lobby starts from the plain settings
         LoadConfig();
         Server.ExecuteCommand($"citadel_allow_duplicate_heroes {(_config.UniqueHeroes ? 0 : 1)}");
         _matchOverAt = -1f;
+        _holdResult = false;
         _modeReset = false;
         _chaosHeroes.Clear();
         _trainHud.Clear();          // a new map: every client's script is loaded afresh
@@ -115,6 +118,11 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _forcedFormat = Format.None;
         _shuffleSeen.Clear();
         _shuffleUsedAt.Clear();
+        _shuffleSince.Clear();
+        _lobbyPreset = null;
+        _lobbyPanelShown = "";
+        _kitsShown = false;
+        _itemDeals.Clear();
         _loggedBrawlState = 0;
         if (_phase == Phase.Restoring && _restore.Count > 0)
         {
@@ -128,6 +136,9 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         {
             _phase = Phase.Lobby;
             _kits.Clear();
+            _away.Clear();
+            _awaySlot.Clear();
+            _back.Clear();
             _restore.Clear();
             _rules = Rules.None;
             RestoreHeroTables();
@@ -140,6 +151,10 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     public override bool OnGameStateChanging(EGameState currentState, EGameState newState)
     {
         // Asked again every tick while the hold lasts, so nothing is logged here.
+        // The end of a match: ten seconds after the result the engine moves on to End, and at that every client
+        // leaves by itself - the lobby leader too, before the plugin's own reset. The result screen is held instead
+        // until the reset (TickMatchOver) has reloaded the map.
+        if (newState == EGameState.End && _holdResult) return false;
         return newState != EGameState.GameInProgress || _phase == Phase.Match;
     }
 
@@ -156,6 +171,8 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         if (c == null) return;
         Log($"player connected slot={args.Slot} name={c.PlayerName} bot={c.IsBot} mapchange={args.IsMapChangeReconnect}");
         if (c.IsBot) return;
+        _steamOfSlot[args.Slot] = c.PlayerSteamId;
+        ComeBack(c);
         if (LobbyIsFull(c)) return;
         if (_phase == Phase.Lobby)
             Chat.PrintToChat(c, args.Slot == Host()
@@ -170,6 +187,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     {
         if (args.IsMapChange) return;
         if (_seats.Remove(args.Slot, out var gone)) ClearBillboard(gone);
+        WentAway(args.Slot);
         _kits.Remove(args.Slot);
         if (args.Slot == _hostSlot)
         {
@@ -193,6 +211,8 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         TickImbues();
         TickChaosHeroes();
         TickSpawnWalls();
+        TickComeBack();
+        TickLobbyPanel();
         TickBrawlLog();
         switch (_phase)
         {
@@ -272,6 +292,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         foreach (var s in _seats.Values) HidePanel(s);
         _phase = Phase.Starting;
         _phaseEnd = Now + seconds;
+        if (_kits.Count > 0) ShowKits(seconds);
         Announce(RulesName(_rules).ToUpperInvariant(), L($"Матч начнётся через {seconds:0} с", $"Match starts in {seconds:0} s"));
     }
 
@@ -399,15 +420,24 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
             if (before.SequenceEqual(kit)) return;
             // Clear all four slots first: a drafted ability may already sit in another slot of this hero.
             var bits = new int[Slots];
+            var items = new List<CCitadelBaseAbility>[Slots];
+            var removed = new List<string>();
             for (int i = 0; i < Slots; i++)
             {
                 if (pawn.GetAbilityBySlot((EAbilitySlot)i) is not CCitadelBaseAbility old) continue;
                 bits[i] = old.UpgradeBits;
+                items[i] = AttachedItems(pawn, old);
+                removed.Add(old.AbilityName);
                 if (!pawn.RemoveAbility(old)) Log($"  could not remove {old.AbilityName} from slot {i + 1}");
             }
+            foreach (var name in removed) RemoveDependents(pawn, name);
             for (int i = 0; i < Slots; i++)
+            {
                 if (!PutAbility(pawn, i, kit[i], bits[i]))
                     Log($"  could not add {kit[i]} to slot {i + 1}");
+                if (items[i] is { Count: > 0 }) ReattachItems(pawn, i, items[i]);
+            }
+            EnsureCompanions(pawn);
             Log($"kit applied slot={pawn.Controller?.Slot} hero={pawn.HeroID}: [{string.Join(", ", before)}] -> [{string.Join(", ", KitOf(pawn))}]");
         }
         catch (Exception ex)
@@ -438,26 +468,40 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     bool ReplaceAbility(CCitadelPlayerPawn pawn, int slot, string name)
     {
         int bits = 0;
+        List<CCitadelBaseAbility> items = [];
         if (pawn.GetAbilityBySlot((EAbilitySlot)slot) is CCitadelBaseAbility old)
         {
             bits = old.UpgradeBits;
+            items = AttachedItems(pawn, old);
+            string was = old.AbilityName;
             pawn.RemoveAbility(old);
+            RemoveDependents(pawn, was);
         }
-        return PutAbility(pawn, slot, name, bits);
+        bool ok = PutAbility(pawn, slot, name, bits);
+        // An item attached to the old ability stays with the slot.
+        if (ok && items.Count > 0) ReattachItems(pawn, slot, items);
+        EnsureCompanions(pawn);
+        return ok;
     }
 
     static string[] KitOf(CCitadelPlayerPawn pawn) =>
         Enumerable.Range(0, Slots).Select(i => (pawn.GetAbilityBySlot((EAbilitySlot)i) as CCitadelBaseAbility)?.AbilityName ?? "-").ToArray();
 
     // ---- vote ------------------------------------------------------------------------------------------------
+    // The vote runs in two steps: the rules first, then - sliding in from below once the rules are settled - the
+    // format. A step ends when everyone has voted or its time is up. What a preset or /chaos has fixed is skipped.
+    int _voteStep;              // 1 = rules, 2 = format
+    bool _rulesDecided;
+    int _voteStd, _voteBrawl;
+
     void StartVote()
     {
         _phase = Phase.Voting;
+        _voteStep = _forcedRules == Rules.None ? 1 : 2;
+        _rulesDecided = false;
         _phaseEnd = Now + VoteSeconds;
-        Log("VOTE START");
-        Announce(L("ГОЛОСОВАНИЕ", "VOTE"), _forcedFormat != Format.None
-            ? "1 — Standard   2 — Street Brawl"
-            : L("Правила: 1, 2   Формат: 3, 4, 5", "Rules: 1, 2   Format: 3, 4, 5"));
+        Log($"VOTE START (step {_voteStep})");
+        Announce(L("ГОЛОСОВАНИЕ", "VOTE"), _voteStep == 1 ? "1 — Standard   2 — Street Brawl" : L("Формат: 3, 4, 5", "Format: 3, 4, 5"));
         foreach (var s in _seats.Values)
         {
             s.Vote = Rules.None;
@@ -472,12 +516,31 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
 
     void CastVote(int slot, Rules r)
     {
-        if (_phase != Phase.Voting || !_seats.TryGetValue(slot, out var s) || r == Rules.None) return;
+        if (_phase != Phase.Voting || _voteStep != 1 || !_seats.TryGetValue(slot, out var s) || r == Rules.None) return;
         s.Vote = r;
         Log($"slot {slot} votes {r}");
         var name = Players.FromSlot(slot)?.PlayerName ?? $"#{slot}";
         Chat.PrintToChatAll($"[Draft] {name}: {RulesName(r)}");
         RefreshVote();
+    }
+
+    void DecideRules(List<Seat> humans)
+    {
+        _rulesDecided = true;
+        _voteStd = humans.Count(s => s.Vote == Rules.Standard);
+        _voteBrawl = humans.Count(s => s.Vote == Rules.StreetBrawl);
+        // A tie goes to the lobby leader's vote, and to Standard when the leader did not vote.
+        _rules = _voteBrawl > _voteStd ? Rules.StreetBrawl
+            : _voteStd > _voteBrawl ? Rules.Standard
+            : _seats.TryGetValue(Host(), out var h) && h.Vote != Rules.None ? h.Vote : Rules.Standard;
+        if (_forcedRules != Rules.None) (_rules, _forcedRules) = (_forcedRules, Rules.None);
+        if (_rules == Rules.StreetBrawl && _seats.Count > _config.MaxPlayersStreetBrawl)
+        {
+            _rules = Rules.Standard;
+            Chat.PrintToChatAll(L($"[Draft] Для Street Brawl слишком много игроков ({_seats.Count}, максимум {_config.MaxPlayersStreetBrawl}) — играем Standard.",
+                $"[Draft] Too many players for Street Brawl ({_seats.Count}, at most {_config.MaxPlayersStreetBrawl}) - playing Standard."));
+        }
+        Log($"VOTE rules: standard={_voteStd} brawl={_voteBrawl} -> {_rules}");
     }
 
     void TickVote()
@@ -489,26 +552,31 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
             _nextTimerText = Now + 1f;
             foreach (var s in _seats.Values.Where(s => s.PanelUp)) UI.Panel(PanelId).Set(RecipientFilter.Single(s.Slot), "ad_timer", VoteClock());
         }
-        if (Now < _phaseEnd && humans.Any(s => s.Vote == Rules.None || formatOpen && s.FormatVote == Format.None)) return;
-
-        int std = humans.Count(s => s.Vote == Rules.Standard), brawl = humans.Count(s => s.Vote == Rules.StreetBrawl);
-        // A tie goes to the lobby leader's vote, and to Standard when the leader did not vote.
-        _rules = brawl > std ? Rules.StreetBrawl
-            : std > brawl ? Rules.Standard
-            : _seats.TryGetValue(Host(), out var h) && h.Vote != Rules.None ? h.Vote : Rules.Standard;
-        if (_forcedRules != Rules.None) (_rules, _forcedRules) = (_forcedRules, Rules.None);
-        if (_rules == Rules.StreetBrawl && _seats.Count > _config.MaxPlayersStreetBrawl)
+        if (_voteStep == 1)
         {
-            _rules = Rules.Standard;
-            Chat.PrintToChatAll(L($"[Draft] Для Street Brawl слишком много игроков ({_seats.Count}, максимум {_config.MaxPlayersStreetBrawl}) — играем Standard.",
-                $"[Draft] Too many players for Street Brawl ({_seats.Count}, at most {_config.MaxPlayersStreetBrawl}) - playing Standard."));
+            if (Now < _phaseEnd && humans.Any(s => s.Vote == Rules.None)) return;
+            DecideRules(humans);
+            if (formatOpen)
+            {
+                _voteStep = 2;
+                _phaseEnd = Now + (humans.Count == 0 ? 1f : VoteSeconds);
+                Chat.PrintToChatAll(L($"[Draft] Правила: {RulesName(_rules)} ({_voteStd}:{_voteBrawl}). Теперь формат.", $"[Draft] Rules: {RulesName(_rules)} ({_voteStd}:{_voteBrawl}). Now the format."));
+                foreach (var s in _seats.Values) s.VoteExplained = false;
+                _formatSlidesIn = true;
+                RefreshVote();
+                _formatSlidesIn = false;
+                return;
+            }
         }
+        else if (Now < _phaseEnd && formatOpen && humans.Any(s => s.FormatVote == Format.None)) return;
+        if (!_rulesDecided) DecideRules(humans);
+
         _format = formatOpen ? TallyFormat(humans) : _forcedFormat;
         _forcedFormat = Format.None;
-        Log($"VOTE RESULT standard={std} brawl={brawl} -> {_rules}, format {_format}");
+        Log($"VOTE RESULT {_rules}, format {_format}");
 
-        Chat.PrintToChatAll(L($"[Draft] Правила: {RulesName(_rules)} ({std}:{brawl}). Формат: {FormatName(_format, true)} — {FormatHint(_format, true)}.",
-            $"[Draft] Rules: {RulesName(_rules)} ({std}:{brawl}). Format: {FormatName(_format, false)} - {FormatHint(_format, false)}."));
+        Chat.PrintToChatAll(L($"[Draft] Правила: {RulesName(_rules)}. Формат: {FormatName(_format, true)} — {FormatHint(_format, true)}.",
+            $"[Draft] Rules: {RulesName(_rules)}. Format: {FormatName(_format, false)} - {FormatHint(_format, false)}."));
         float countdown = StartDelaySeconds;
         if (_format == Format.Chaos && _kits.Count == 0)
         {

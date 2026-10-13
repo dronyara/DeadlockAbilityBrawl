@@ -62,7 +62,7 @@ public sealed partial class DraftPlugin
             : HookResult.Continue;
     }
 
-    // Switched on by an empty file: abilitydraft.trace in %TEMP%, or AbilityDraft.trace next to the plugin DLL.
-    static readonly bool TraceClientCommands = File.Exists(Path.Combine(Path.GetTempPath(), "abilitydraft.trace"))
-        || File.Exists(Path.Combine(PluginDir, "AbilityDraft.trace"));
+    // "Trace" in the config.
+    static bool _trace;
+    static bool TraceClientCommands => _trace;
 }

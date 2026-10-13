@@ -78,5 +78,26 @@ with io.open(out, "w", encoding="utf-8", newline="\n") as f:
     for hero in sorted(icons):
         if icons[hero]:
             f.write("        [%s] = %s,\n" % (cs(hero), cs(icons[hero])))
-    f.write("    };\n}\n")
+    f.write("    };\n\n")
+    # An ability may bring others with it (its second stage, an alternate fire, a weapon). The engine creates them
+    # with the ability but does not take them away when the ability is removed by hand.
+    f.write("    // Abilities that come with another one (second stages, alternate fire), by the ability that brings them.\n")
+    f.write("    public static readonly Dictionary<string, string[]> Dependents = new()\n    {\n")
+    for name, blk in sorted(ab.items()):
+        m = re.search(r"\n\t\tm_mapDependentAbilities = \n\t\t\{\n((?:\t\t\t[^\n]*\n)*)\t\t\}", blk)
+        deps = [d for d in re.findall(r"^\t\t\t([A-Za-z_0-9]+) = ", m.group(1), re.M) if d in ab] if m else []
+        if deps:
+            f.write("        [%s] = [%s],\n" % (cs(name), ", ".join(cs(d) for d in deps)))
+    f.write("    };\n\n")
+    passive = sorted({r[4] for r in rows if "ACTIVATION_PASSIVE" in field(ab.get(r[4], ""), "m_eAbilityActivation")})
+    f.write("    // Pool abilities that are never pressed: the Shuffle format swaps them on a clock instead.\n")
+    f.write("    public static readonly HashSet<string> Passives =\n    [\n")
+    for name in passive:
+        f.write("        %s,\n" % cs(name))
+    f.write("    ];\n\n")
+    weapon = sorted(n for n, blk in ab.items() if n.startswith("upgrade_") and field(blk, "m_eItemSlotType") == "EItemSlotType_WeaponMod")
+    f.write("    // Shop items of the weapon category.\n    public static readonly string[] WeaponItems =\n    [\n")
+    for name in weapon:
+        f.write("        %s,\n" % cs(name))
+    f.write("    ];\n}\n")
 print(f"{len(rows)} abilities from {len(rows)//4} heroes; skipped (no kit): {skipped}")

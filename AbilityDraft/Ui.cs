@@ -140,35 +140,44 @@ public sealed partial class DraftPlugin
                 .WithStyles(("font-size", "20px"), ("color", "#9c9484"), ("horizontal-align", "center"), ("margin-top", "16px"))));
     }
 
+    bool _formatSlidesIn;       // set for the one redraw in which the format step appears
+
     void ShowVote(Seat s)
     {
         var c = Players.FromSlot(s.Slot);
         if (c == null) return;
-        bool ru = s.Ru, formatOpen = _forcedFormat == Format.None;
+        bool ru = s.Ru;
         if (!s.VoteExplained)
         {
             s.VoteExplained = true;
-            Chat.PrintToChat(c, ru
-                ? "[Draft] Правила: напиши в чат 1 — Standard, 2 — Street Brawl (или /vote standard, /vote brawl)"
-                : "[Draft] Rules: type 1 for Standard, 2 for Street Brawl (or /vote standard, /vote brawl)");
-            if (formatOpen)
-                Chat.PrintToChat(c, ru
-                    ? "[Draft] Формат: 3 — Драфт, 4 — Хаос (случайные герои и способности), 5 — Перетасовка (способность меняется после применения)"
-                    : "[Draft] Format: 3 - Draft, 4 - Chaos (random heroes and abilities), 5 - Shuffle (an ability changes after each use)");
+            Chat.PrintToChat(c, _voteStep == 1
+                ? (ru ? "[Draft] Правила: напиши в чат 1 — Standard, 2 — Street Brawl (или /vote standard, /vote brawl)"
+                      : "[Draft] Rules: type 1 for Standard, 2 for Street Brawl (or /vote standard, /vote brawl)")
+                : (ru ? "[Draft] Формат: 3 — Драфт, 4 — Хаос (случайные герои и способности), 5 — Перетасовка (способность меняется после применения)"
+                      : "[Draft] Format: 3 - Draft, 4 - Chaos (random heroes and abilities), 5 - Shuffle (an ability changes after each use)"));
         }
         Format[] formats = [Format.Draft, Format.Chaos, Format.Shuffle];
         if (!HasUi(s))
         {
             string Mark(bool on) => on ? "  ✔" : "";
-            string text = (ru ? "ПРАВИЛА МАТЧА" : "MATCH RULES") + $"\n \n[1]  Standard{Mark(s.Vote == Rules.Standard)}\n[2]  Street Brawl{Mark(s.Vote == Rules.StreetBrawl)}";
-            if (formatOpen)
-                text += "\n \n" + (ru ? "ФОРМАТ" : "FORMAT") + "\n \n" + string.Join("\n", formats.Select((f, n) => $"[{n + 3}]  {FormatName(f, ru)}{Mark(s.FormatVote == f)}"));
+            string text = _voteStep == 1
+                ? (ru ? "ПРАВИЛА МАТЧА" : "MATCH RULES") + $"\n \n[1]  Standard{Mark(s.Vote == Rules.Standard)}\n[2]  Street Brawl{Mark(s.Vote == Rules.StreetBrawl)}"
+                : (ru ? "ПРАВИЛА: " : "RULES: ") + RulesName(_rules) + "\n \n" + (ru ? "ФОРМАТ" : "FORMAT") + "\n \n"
+                    + string.Join("\n", formats.Select((f, n) => $"[{n + 3}]  {FormatName(f, ru)}{Mark(s.FormatVote == f)}"));
             SetBillboard(s, text);
             return;
         }
 
         var to = RecipientFilter.Single(s.Slot);
-        UI.Panel(PanelId).BuildLayout(to, VoteLayout(s, formatOpen));
+        UI.Panel(PanelId).BuildLayout(to, VoteLayout(s));
+        if (_formatSlidesIn)
+        {
+            // The format card is built below its place and see-through, the rules card at full strength: the one
+            // rides up over the other, which fades until it only just shows.
+            UI.Panel(PanelId).Animate(to, "ad_formats", "transform", "translateY(0px)", "0.45s", "ease-out");
+            UI.Panel(PanelId).Animate(to, "ad_formats", "opacity", "1", "0.45s", "ease-out");
+            UI.Panel(PanelId).Animate(to, "ad_rules", "opacity", RulesBehind, "0.45s", "ease-out");
+        }
         if (!s.PanelUp) UI.Panel(PanelId).RequestCursor(to);
         s.PanelUp = true;
     }
@@ -179,85 +188,142 @@ public sealed partial class DraftPlugin
         foreach (var s in _seats.Values.Where(s => !s.Bot)) ShowVote(s);
     }
 
-    // The vote as a window: a header bar, the rules on the left under the amber team's colour, the formats on the
-    // right under the sapphire team's, and under every tile the portraits of the heroes who voted for it.
-    const string VoteDark = "#16130ff7", VoteLine = "#3b352c", VoteText = "#e9e2d2", VoteDim = "#8f8777";
-    const string VoteAmber = "#8a5718", VoteSapphire = "#27406f", VoteChosen = "#d9a441";
+    // ---- the look ---------------------------------------------------------------------------------------------------
+    // Every window follows one pattern: a dark sheet with a pale hairline, a heavy title with a line of small capitals
+    // beside it and a rule under both; inside, cards that fade from a team's colour at the top into the dark, with a
+    // bright edge on top; grey-brown tiles; outlined buttons; and a blue strip along the bottom for the hint.
+    const string VoteLine = "#4d4841", VoteText = "#f3e6c8", VoteDim = "#b7ae9c", VoteChosen = "#f0b94a";
+    const string SheetFill = "#1b1916f2", TileFill = "#3a352f", TileEdge = "#5a544c", RowFill = "#00000066";
+    const string AmberEdge = "#e59a2f", SapphireEdge = "#7b96f5", StripFill = "#1e2c74", StripText = "#d6dcff";
+    const string RulesBehind = "0.18";          // how much of the rules card shows from under the format card
 
-    UINode VoteLayout(Seat s, bool formatOpen)
+    static string Fade(string from, string to) => $"gradient( linear, 0% 0%, 0% 100%, from( {from} ), to( {to} ) )";
+    static readonly string AmberFill = Fade("#8a5414", "#2a1906"), SapphireFill = Fade("#2c3d86", "#121834");
+    static readonly string ChosenFill = Fade("#7a5f22", "#33280f"), TileHover = Fade("#4b453d", "#3a352f");
+
+    /// <summary>A window: the sheet, the title line, the body and, when given, the hint strip.</summary>
+    static UINode Sheet(string id, string title, IEnumerable<UINode> beside, UINode body, string? hint, params (string, string)[] place)
+    {
+        var head = UI.Horizontal(id + "_head").WithStyles(("width", "100%"), ("height", "62px"));
+        head.Add(UI.Label(id + "_title", title).WithStyles(("font-size", "32px"), ("font-weight", "black"), ("letter-spacing", "2px"), ("color", "#ffffff"),
+            ("vertical-align", "center"), ("margin-left", "18px"), ("margin-right", "10px")));
+        foreach (var node in beside) head.Add(node);
+        var sheet = UI.Vertical(id).WithStyles(("background-color", SheetFill), ("border", $"1px solid {VoteLine}"), ("box-shadow", "#000000cc 0px 0px 28px 0px")).WithStyles(place);
+        sheet.Add(head, UI.Container(id + "_rule").WithStyles(("width", "100%"), ("height", "1px"), ("background-color", VoteLine), ("margin", "0px 16px")), body);
+        if (hint != null)
+            sheet.Add(UI.Container(id + "_strip").WithStyles(("width", "100%"), ("background-color", StripFill), ("margin", "4px 16px 14px 16px")).Add(
+                UI.Label(id + "_hint", hint).WithStyles(("font-size", "15px"), ("color", StripText), ("margin", "7px 10px"), ("white-space", "normal"))));
+        return sheet;
+    }
+
+    /// <summary>The small capitals beside a window's title.</summary>
+    static UINode Caps(string id, string text, string colour = VoteDim) =>
+        UI.Label(id, text).WithStyles(("font-size", "16px"), ("color", colour), ("letter-spacing", "2px"), ("vertical-align", "center"), ("margin-left", "16px"));
+
+    /// <summary>A card in a team's colour: bright edge on top, the colour fading into the dark below.</summary>
+    static UINode Card(string id, string title, bool amber, UINode content, params (string, string)[] place) =>
+        UI.Vertical(id).WithStyles(("background-color", amber ? AmberFill : SapphireFill), ("border-top", $"2px solid {(amber ? AmberEdge : SapphireEdge)}")).WithStyles(place).Add(
+            UI.Label(id + "_title", title).WithStyles(("font-size", "22px"), ("font-weight", "black"), ("letter-spacing", "2px"), ("color", VoteText), ("margin", "10px 12px 4px 12px")),
+            content);
+
+    /// <summary>An outlined button, as the game's own JOIN and CLOSE.</summary>
+    static UIButton Outlined(string id, string text, string action, string arg, bool chosen = false) =>
+        UI.Button(id, text, action, arg)
+            .WithStyles(("height", "40px"), ("background-color", chosen ? ChosenFill : "#00000044"), ("border", $"1px solid {(chosen ? VoteChosen : "#d8d2c4")}"))
+            .WithHoverStyle("background-color", "#ffffff22")
+            .WithTextStyles(("font-size", "18px"), ("letter-spacing", "1px"), ("color", chosen ? VoteChosen : "#ffffff"), ("horizontal-align", "center"),
+                ("vertical-align", "center"), ("text-transform", "uppercase"), ("margin", "0px 14px"));
+
+    UINode Portraits(string id, IEnumerable<Seat> who, Seat viewer)
+    {
+        var row = UI.Horizontal(id).WithStyles(("horizontal-align", "center"), ("height", "44px"), ("margin-top", "6px"));
+        int n = 0;
+        foreach (var seat in who)
+        {
+            string? icon = HeroIcon(seat.Slot);
+            if (icon != null)
+                row.Add(UI.Image($"{id}_{n++}", icon).WithStyles(("width", "40px"), ("height", "40px"), ("margin", "0px 2px"),
+                    ("border-radius", "50%"), ("border", $"2px solid {(seat == viewer ? VoteChosen : TileEdge)}")));
+            else
+                row.Add(UI.Label($"{id}_{n++}", "●").WithStyles(("font-size", "26px"), ("color", seat == viewer ? VoteChosen : VoteDim), ("margin", "0px 4px")));
+        }
+        return row;
+    }
+
+    static string? HeroIcon(int slot) =>
+        Players.FromSlot(slot)?.GetHeroPawn() is { } pawn && pawn.HeroID != 0
+            ? AbilityPool.HeroIcons.GetValueOrDefault("hero_" + HeroKey(pawn.HeroID.ToHeroName())) : null;
+
+    // ---- the vote ------------------------------------------------------------------------------------------------------
+    // Step one is the rules card on its own. In step two the format card rides up over it from below, and the rules
+    // card stays underneath, faded, with its top edge showing.
+    const int TileWidth = 208, CardHeight = 262, CardPeek = 40;
+
+    UINode VoteLayout(Seat s)
     {
         bool ru = s.Ru;
         var humans = _seats.Values.Where(x => !x.Bot).ToList();
-        int voted = humans.Count(x => x.Vote != Rules.None && (!formatOpen || x.FormatVote != Format.None));
+        int voted = _voteStep == 1 ? humans.Count(x => x.Vote != Rules.None) : humans.Count(x => x.FormatVote != Format.None);
 
-        UINode Voters(string id, IEnumerable<Seat> who)
+        // "live" tiles take a click; the rules tiles of a finished step only show how it went.
+        UINode Tile(string id, int digit, string title, string hint, string action, string arg, bool chosen, bool live, IEnumerable<Seat> who) =>
+            UI.Vertical(id).WithStyles(("width", $"{TileWidth}px"), ("margin", "0px 6px")).Add(
+                UI.Button(id + "_b", title, live ? action : "none", arg)
+                    .WithStyles(("width", "100%"), ("height", "92px"), ("background-color", chosen ? ChosenFill : TileFill),
+                        ("border", $"{(chosen ? 2 : 1)}px solid {(chosen ? VoteChosen : TileEdge)}"))
+                    .WithHoverStyle("background-color", live && !chosen ? TileHover : chosen ? ChosenFill : TileFill)
+                    .WithTextStyles(("font-size", "24px"), ("font-weight", "black"), ("letter-spacing", "1px"), ("color", chosen ? VoteChosen : VoteText),
+                        ("horizontal-align", "center"), ("vertical-align", "center"), ("text-transform", "uppercase")),
+                UI.Label(id + "_h", live ? $"[{digit}]  {hint}" : hint).WithStyles(("font-size", "15px"), ("color", VoteDim), ("horizontal-align", "center"),
+                    ("text-align", "center"), ("margin-top", "6px"), ("height", "38px"), ("width", "100%"), ("white-space", "normal"), ("text-overflow", "clip")),
+                Portraits(id + "_v", who, s));
+
+        UINode Tiles(string id, params UINode[] tiles)
         {
-            var row = UI.Horizontal(id).WithStyles(("horizontal-align", "center"), ("height", "44px"), ("margin-top", "8px"));
-            int n = 0;
-            foreach (var seat in who)
-            {
-                string? icon = Players.FromSlot(seat.Slot)?.GetHeroPawn() is { } pawn && pawn.HeroID != 0
-                    ? AbilityPool.HeroIcons.GetValueOrDefault("hero_" + HeroKey(pawn.HeroID.ToHeroName())) : null;
-                if (icon != null)
-                    row.Add(UI.Image($"{id}_{n++}", icon).WithStyles(("width", "40px"), ("height", "40px"), ("margin", "0px 2px"),
-                        ("border-radius", "50%"), ("border", $"2px solid {(seat == s ? VoteChosen : VoteLine)}")));
-                else
-                    row.Add(UI.Label($"{id}_{n++}", "●").WithStyles(("font-size", "26px"), ("color", seat == s ? VoteChosen : VoteDim), ("margin", "0px 4px")));
-            }
+            var row = UI.Horizontal(id).WithStyles(("margin", "8px 8px 10px 8px"), ("horizontal-align", "center"));
+            row.Add(tiles);
             return row;
         }
 
-        UINode Tile(string id, int digit, string title, string hint, string action, string arg, bool mine, IEnumerable<Seat> who) =>
-            UI.Vertical(id).WithStyles(("width", "208px"), ("margin", "0px 6px")).Add(
-                UI.Button(id + "_b", $"{title}", action, arg)
-                    .WithStyles(("width", "100%"), ("height", "92px"), ("background-color", mine ? "#3a301c" : "#221e18"),
-                        ("border", $"2px solid {(mine ? VoteChosen : VoteLine)}"), ("border-radius", "3px"))
-                    .WithHoverStyle("background-color", "#40372a")
-                    .WithTextStyles(("font-size", "25px"), ("font-weight", "bold"), ("letter-spacing", "1px"), ("color", mine ? VoteChosen : VoteText),
-                        ("horizontal-align", "center"), ("vertical-align", "center"), ("text-transform", "uppercase")),
-                UI.Label(id + "_h", $"[{digit}]  {hint}").WithStyles(("font-size", "15px"), ("color", VoteDim), ("horizontal-align", "center"),
-                    ("text-align", "center"), ("margin-top", "6px"), ("height", "38px"), ("width", "100%"), ("white-space", "normal"), ("text-overflow", "clip")),
-                Voters(id + "_v", who));
+        bool rulesLive = _voteStep == 1, rulesVoted = _rulesDecided && _voteStd + _voteBrawl > 0;
+        UINode? rules = rulesLive || rulesVoted
+            ? Card("ad_rules", ru ? "ПРАВИЛА" : "RULES", true, Tiles("ad_rules_row",
+                Tile("ad_std", 1, "Standard", ru ? "обычный матч" : "the full match", "vote", "standard",
+                    rulesLive ? s.Vote == Rules.Standard : _rules == Rules.Standard, rulesLive, humans.Where(x => x.Vote == Rules.Standard)),
+                Tile("ad_brawl", 2, "Street Brawl", ru ? "короткие раунды" : "short rounds", "vote", "brawl",
+                    rulesLive ? s.Vote == Rules.StreetBrawl : _rules == Rules.StreetBrawl, rulesLive, humans.Where(x => x.Vote == Rules.StreetBrawl))),
+                ("horizontal-align", "center"), ("height", $"{CardHeight}px"))
+            : null;
 
-        UINode Group(string id, string title, string colour, params UINode[] tiles)
-        {
-            var row = UI.Horizontal(id + "_row").WithStyles(("margin", "14px 8px 10px 8px"));
-            row.Add(tiles);
-            return UI.Vertical(id).WithStyles(("margin", "0px 8px"), ("background-color", "#1d1913"), ("border", $"1px solid {VoteLine}")).Add(
-                UI.Container(id + "_head").WithStyles(("width", "100%"), ("height", "44px"), ("background-color", colour)).Add(
-                    UI.Label(id + "_title", title).WithStyles(("font-size", "22px"), ("font-weight", "bold"), ("letter-spacing", "2px"),
-                        ("color", "#ffffff"), ("margin-left", "14px"), ("vertical-align", "center"))),
-                row);
-        }
-
-        var groups = UI.Horizontal("ad_groups").WithStyles(("horizontal-align", "center"), ("margin", "18px 10px 6px 10px"));
-        groups.Add(Group("ad_rules", ru ? "ПРАВИЛА" : "RULES", VoteAmber,
-            Tile("ad_std", 1, "Standard", ru ? "обычный матч" : "the full match", "vote", "standard", s.Vote == Rules.Standard, humans.Where(x => x.Vote == Rules.Standard)),
-            Tile("ad_brawl", 2, "Street Brawl", ru ? "короткие раунды" : "short rounds", "vote", "brawl", s.Vote == Rules.StreetBrawl, humans.Where(x => x.Vote == Rules.StreetBrawl))));
-        if (formatOpen)
+        UINode body;
+        if (_voteStep == 1) body = UI.Container("ad_stack").WithStyles(("horizontal-align", "center"), ("margin", "16px 16px 8px 16px")).Add(rules!);
+        else
         {
             Format[] formats = [Format.Draft, Format.Chaos, Format.Shuffle];
-            groups.Add(Group("ad_formats", ru ? "ФОРМАТ" : "FORMAT", VoteSapphire, formats.Select((f, n) =>
-                Tile($"ad_format{n}", n + 3, FormatName(f, ru), FormatHint(f, ru), "format", f.ToString().ToLowerInvariant(), s.FormatVote == f, humans.Where(x => x.FormatVote == f))).ToArray()));
+            var format = Card("ad_formats", ru ? "ФОРМАТ" : "FORMAT", false, Tiles("ad_formats_row", formats.Select((f, n) =>
+                Tile($"ad_format{n}", n + 3, FormatName(f, ru), FormatHint(f, ru), "format", f.ToString().ToLowerInvariant(), s.FormatVote == f, true, humans.Where(x => x.FormatVote == f))).ToArray()),
+                ("horizontal-align", "center"), ("height", $"{CardHeight}px"), ("margin-top", rules != null ? $"{CardPeek}px" : "0px"));
+            // A plain panel lays its children on top of one another: the rules card first, the format card over it.
+            var stack = UI.Container("ad_stack").WithStyles(("horizontal-align", "center"), ("margin", "16px 16px 8px 16px"));
+            if (rules != null) stack.Add(rules.WithStyles(("opacity", _formatSlidesIn ? "1" : RulesBehind)));
+            if (_formatSlidesIn) format.WithStyles(("transform", $"translateY({CardHeight}px)"), ("opacity", "0"));
+            stack.Add(format);
+            body = stack;
         }
 
-        (string, string)[] caps = [("font-size", "16px"), ("color", VoteDim), ("letter-spacing", "1px"), ("vertical-align", "center"), ("margin-left", "22px")];
-        var header = UI.Horizontal("ad_header").WithStyles(("width", "100%"), ("height", "50px"), ("background-color", "#0d0b09"), ("border-bottom", $"1px solid {VoteLine}")).Add(
-            UI.Label("ad_title", "ABILITY BRAWL").WithStyles(("font-size", "24px"), ("font-weight", "bold"), ("letter-spacing", "3px"), ("color", "#ffffff"),
-                ("vertical-align", "center"), ("margin-left", "18px")),
-            UI.Label("ad_stage", ru ? "ГОЛОСОВАНИЕ" : "VOTE").WithStyles(caps),
-            UI.Label("ad_count", ru ? $"ПРОГОЛОСОВАЛО {voted}/{humans.Count}" : $"{voted}/{humans.Count} VOTED").WithStyles(caps),
-            UI.Label("ad_timer", VoteClock()).WithStyles(caps).WithStyles(("color", VoteChosen)));
-
-        var window = UI.Vertical("ad_window").WithStyles(("horizontal-align", "center"), ("vertical-align", "center"),
-            ("background-color", VoteDark), ("border", $"1px solid {VoteLine}"), ("box-shadow", "#000000cc 0px 0px 24px 0px")).Add(
-            header,
-            groups,
-            UI.Label("ad_foot", ru
-                ? "Нажми на плитку или напиши её цифру в чат. При равенстве решает голос лидера лобби."
-                : "Click a tile or type its digit in chat. A tie goes to the lobby leader's vote.")
-                .WithStyles(("font-size", "16px"), ("color", VoteDim), ("margin", "6px 18px 14px 18px")));
-        return UI.Container("ad_root").WithStyles(("width", "100%"), ("height", "100%"), ("background-color", "#00000099")).Add(window);
+        bool twoSteps = _voteStep == 1 ? _forcedFormat == Format.None : rulesVoted;
+        string stage = (ru ? "ГОЛОСОВАНИЕ" : "VOTE") + (twoSteps ? (ru ? $" - ШАГ {_voteStep} ИЗ 2" : $" - STEP {_voteStep} OF 2") : "");
+        UINode[] beside =
+        [
+            Caps("ad_stage", stage),
+            Caps("ad_count", ru ? $"-   ПРОГОЛОСОВАЛО {voted}/{humans.Count}" : $"-   {voted}/{humans.Count} VOTED"),
+            Caps("ad_timer", VoteClock(), VoteChosen),
+        ];
+        var sheet = Sheet("ad_window", "ABILITY BRAWL", beside, body,
+            ru ? "Нажми на плитку или напиши её цифру в чат. При равенстве решает голос лидера лобби."
+               : "Click a tile or type its digit in chat. A tie goes to the lobby leader's vote.",
+            ("horizontal-align", "center"), ("vertical-align", "center"), ("min-width", "720px"));
+        return UI.Container("ad_root").WithStyles(("width", "100%"), ("height", "100%"), ("background-color", "#00000088")).Add(sheet);
     }
 
     string VoteClock()
@@ -296,6 +362,7 @@ public sealed partial class DraftPlugin
     public override void OnGameFrame(bool simulating, bool firstTick, bool lastTick)
     {
         TickNativeDraft();
+        FilterItemDeals();
         if (_phase is not (Phase.Drafting or Phase.Voting)) return;
         foreach (var s in _seats.Values) PlaceBillboard(s);
     }

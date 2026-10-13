@@ -154,6 +154,13 @@ public sealed partial class DraftPlugin
                 PanelUi = a.Length == 0 || a[0] != "0";
                 Log($"panels for clients with the UI bridge = {PanelUi}");
                 break;
+            case "preset":
+                LoadConfig();
+                StartPreset(_config.Presets.Keys.First(k => k.Equals(arg.Trim(), StringComparison.OrdinalIgnoreCase)));
+                break;
+            case "statspage":
+                Log($"statistics page: {WriteStatsPage() ?? "nothing recorded"}");
+                break;
             case "forceformat":
                 _forcedFormat = ParseFormat(a[0]);
                 Log($"forced format = {_forcedFormat}");
@@ -243,7 +250,7 @@ public sealed partial class DraftPlugin
                     Log($"cast slot={a[0]} ability={(pawn?.GetAbilityBySlot(slot) as CCitadelBaseAbility)?.AbilityName} -> {pawn?.ExecuteAbilityBySlot(slot)}");
                     break;
                 }
-            case "brawl" or "brawlnext" or "mods" or "named" or "input" or "endtime" or "walls" or "nobot" or "npick" or "kill" or "ds" or "closedraft" or "hurtents" or "cds" or "usecd":
+            case "brawl" or "brawlnext" or "mods" or "named" or "input" or "endtime" or "walls" or "nobot" or "npick" or "kill" or "ds" or "closedraft" or "hurtents" or "cds" or "usecd" or "give" or "allabil" or "item" or "imbued" or "live":
                 BrawlBridge(cmd, a);
                 break;
             default:

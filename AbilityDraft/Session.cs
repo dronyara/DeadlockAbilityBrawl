@@ -32,6 +32,7 @@ public sealed partial class DraftPlugin
 
     // ---- after the match -------------------------------------------------------------------------------------
     float _matchOverAt = -1f;
+    bool _holdResult;           // from the result of a match until the next map: the engine may not end the match itself
 
     /// <summary>A finished match starts the countdown to a fresh lobby.</summary>
     void MatchOver(EGameState state)
@@ -45,11 +46,13 @@ public sealed partial class DraftPlugin
         if (!_modeReset)
         {
             _modeReset = true;
+            RecordMatch();
             ResetModeConVars();
             Log($"match over ({state}): mode convars back to Standard");
         }
         if (_config.SecondsAfterMatch <= 0) return;
         _matchOverAt = Now + _config.SecondsAfterMatch;
+        _holdResult = true;
         Log($"MATCH OVER ({state}): new lobby in {_config.SecondsAfterMatch} s");
         Chat.PrintToChatAll(L($"[Draft] Матч окончен. Через {_config.SecondsAfterMatch} с лобби откроется заново, останется только лидер лобби.",
             $"[Draft] The match is over. In {_config.SecondsAfterMatch} s the lobby reopens and only the lobby leader stays."));

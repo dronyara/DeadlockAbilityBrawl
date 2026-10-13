@@ -28,7 +28,7 @@ public sealed partial class DraftPlugin
 
     void CastFormat(int slot, Format f)
     {
-        if (_phase != Phase.Voting || _forcedFormat != Format.None || f == Format.None || !_seats.TryGetValue(slot, out var s)) return;
+        if (_phase != Phase.Voting || _voteStep != 2 || _forcedFormat != Format.None || f == Format.None || !_seats.TryGetValue(slot, out var s)) return;
         s.FormatVote = f;
         Log($"slot {slot} votes for format {f}");
         var name = Players.FromSlot(slot)?.PlayerName ?? $"#{slot}";
@@ -95,10 +95,63 @@ public sealed partial class DraftPlugin
     // What each ability slot looked like at the last look, to notice a use: a new cooldown, or a charge gone.
     readonly Dictionary<(int Player, int Slot), (float CooldownStart, int Charges)> _shuffleSeen = new();
     readonly Dictionary<(int Player, int Slot), float> _shuffleUsedAt = new();
+    // When the ability now in a slot got there. A passive is never used, so it would stay for the whole match; it
+    // is swapped on a clock instead (ShufflePassiveSeconds).
+    readonly Dictionary<(int Player, int Slot), float> _shuffleSince = new();
+
+    // "Still going" is read off the ability itself (a cast, a channel, a toggle) and off the world: an effect an
+    // ability leaves behind - a buff, a mark on an enemy, a piece on the board, a wall - is a modifier that names the
+    // ability it came from. While one made by this use is alive, the ability stays; removing the ability would take
+    // the effect with it or leave it dead in place.
+    static readonly SchemaAccessor<bool> AbilityInCastDelay = new("CCitadelBaseAbility"u8, "m_bInCastDelay"u8, 0);
+    static readonly SchemaAccessor<float> AbilityPostCastEnd = new("CCitadelBaseAbility"u8, "m_flPostCastDelayEndTime"u8, 0);
+    static readonly SchemaAccessor<uint> ModifierAbility = new("CBaseModifier"u8, "m_hAbility"u8, 0);
+    static readonly SchemaAccessor<float> ModifierCreated = new("CBaseModifier"u8, "m_flCreationTime"u8, 0);
+    static readonly bool CastStateKnown = (long)AbilityInCastDelay.GetAddress(IntPtr.Zero) > 0 && (long)AbilityPostCastEnd.GetAddress(IntPtr.Zero) > 0;
+    static readonly bool ModifierSourceKnown = (long)ModifierAbility.GetAddress(IntPtr.Zero) > 0 && (long)ModifierCreated.GetAddress(IntPtr.Zero) > 0;
+    const float ShuffleLongestWait = 60f;       // an effect that never ends does not keep its ability for ever
+
+    /// <summary>For every ability with a live effect in the world: when the newest of those effects was made.</summary>
+    static Dictionary<uint, float> LiveEffects()
+    {
+        var live = new Dictionary<uint, float>();
+        if (!ModifierSourceKnown) return live;
+        foreach (var entity in Entities.All)
+        {
+            if (entity.ModifierProp is not { } props) continue;
+            foreach (var m in props.Modifiers)
+            {
+                uint source = ModifierAbility.Get(m.Handle);
+                if (source == 0 || source == uint.MaxValue) continue;
+                float made = ModifierCreated.Get(m.Handle);
+                if (!live.TryGetValue(source, out float newest) || made > newest) live[source] = made;
+            }
+        }
+        return live;
+    }
+
+    static bool InCast(CCitadelBaseAbility a) =>
+        a.IsChanneling || a.ToggleState || CastStateKnown && (AbilityInCastDelay.Get(a.Handle) || Now < AbilityPostCastEnd.Get(a.Handle));
+
+    /// <summary>True while the use at <paramref name="usedAt"/> is still playing out: the ability or one of its stages is mid-cast, or something it made then is still there.</summary>
+    static bool StillGoing(CCitadelPlayerPawn pawn, CCitadelBaseAbility ability, float usedAt, Dictionary<uint, float> live)
+    {
+        var parts = new List<CCitadelBaseAbility> { ability };
+        if (AbilityPool.Dependents.TryGetValue(ability.AbilityName, out var deps))
+            foreach (var dep in deps)
+                if (pawn.AbilityComponent.FindAbilityByName(dep) is CCitadelBaseAbility stage) parts.Add(stage);
+        foreach (var part in parts)
+        {
+            if (InCast(part)) return true;
+            if (live.TryGetValue(part.EntityHandle, out float made) && made >= usedAt - 0.5f) return true;
+        }
+        return false;
+    }
 
     void TickShuffle()
     {
         if (_format != Format.Shuffle) return;
+        Dictionary<uint, float>? live = null;
         foreach (var (player, kit) in _kits)
         {
             if (Players.FromSlot(player) is not { } c || c.GetHeroPawn() is not { IsAlive: true } pawn) continue;
@@ -107,12 +160,19 @@ public sealed partial class DraftPlugin
                 if (pawn.GetAbilityBySlot((EAbilitySlot)i) is not CCitadelBaseAbility ability || ability.AbilityName != kit[i]) continue;
                 var key = (player, i);
                 var now = (ability.CooldownStart, ability.RemainingCharges);
-                if (!_shuffleSeen.TryGetValue(key, out var seen)) { _shuffleSeen[key] = now; continue; }
+                if (!_shuffleSeen.TryGetValue(key, out var seen)) { _shuffleSeen[key] = now; _shuffleSince[key] = Now; continue; }
+                if (_config.ShufflePassiveSeconds > 0 && AbilityPool.Passives.Contains(kit[i])
+                    && _shuffleSince.TryGetValue(key, out float since) && Now >= since + _config.ShufflePassiveSeconds)
+                {
+                    SwapUsedAbility(c, pawn, kit, i, ability);
+                    continue;
+                }
                 bool used = ability.IsOnCooldown && now.CooldownStart > seen.CooldownStart + 0.05f || now.RemainingCharges < seen.Charges;
                 _shuffleSeen[key] = now;
                 if (used) _shuffleUsedAt.TryAdd(key, Now);
-                // The swap waits for the cast to be over: a channel or a toggle cut off halfway would simply be lost.
-                if (!_shuffleUsedAt.TryGetValue(key, out float usedAt) || Now < usedAt + _config.ShuffleSeconds || ability.IsChanneling || ability.ToggleState) continue;
+                if (!_shuffleUsedAt.TryGetValue(key, out float usedAt) || Now < usedAt + _config.ShuffleSeconds) continue;
+                // The swap waits until the ability is done: see StillGoing.
+                if (Now < usedAt + ShuffleLongestWait && StillGoing(pawn, ability, usedAt, live ??= LiveEffects())) continue;
                 _shuffleUsedAt.Remove(key);
                 SwapUsedAbility(c, pawn, kit, i, ability);
             }
@@ -136,9 +196,10 @@ public sealed partial class DraftPlugin
             if (cooling) { fresh.CooldownStart = start; fresh.CooldownEnd = end; }
             _shuffleSeen[(c.Slot, slot)] = (fresh.CooldownStart, fresh.RemainingCharges);
         }
+        _shuffleSince[(c.Slot, slot)] = Now;
         Log($"shuffle slot {c.Slot}: {was} -> {next.Name} (slot {slot + 1})");
         if (c.IsBot) return;
         bool ru = _seats.TryGetValue(c.Slot, out var seat) ? seat.Ru : _ru;
-        Chat.PrintToChat(c, $"[Draft] {slot + 1}: {next.Title(ru)}");
+        if (!ShowSwap(c, slot, next, ru)) Chat.PrintToChat(c, $"[Draft] {slot + 1}: {next.Title(ru)}");
     }
 }

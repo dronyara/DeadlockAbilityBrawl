@@ -56,9 +56,10 @@ PLAY
   connect <server ip>:27067  (forward UDP/TCP 27067 on the router).
 - Pick heroes; a hero somebody already has cannot be picked. The lobby leader (first player in) types /draft
   in chat - or /chaos, which gives everyone a random hero and four random abilities with no picks.
-- Everyone votes by typing a digit in chat. Rules: 1 Standard, 2 Street Brawl. Format: 3 Draft, 4 Chaos (random
+- Everyone votes by typing a digit in chat, first the rules and then the format. Rules: 1 Standard, 2 Street
+  Brawl. Format: 3 Draft, 4 Chaos (random
   heroes and abilities), 5 Shuffle (your hero, random abilities, and an ability is replaced by another random one
-  a second after you use it). /chaos instead of /draft skips the format vote.
+  once it has run its course). /chaos instead of /draft skips the format vote.
 - The match starts and the draft screen opens with ability cards. Take a card by typing 1, 2 or 3 in chat
   (left, top, right). Four picks, the last one is the ultimate; three rerolls per pick with the Reroll button.
   With the client addon, type /vpk before the draft and click the cards instead.
@@ -84,6 +85,11 @@ start. The file explains itself; in short:
   "PregameSeconds": 10             Standard: countdown behind the spawn walls before the match starts
   "Logging": true                  false - no plugin lines in the server console or in its log file
   "ShuffleSeconds": 1              Shuffle format: seconds between using an ability and getting a new one
+  "ShufflePassiveSeconds": 30      Shuffle format: a passive ability is swapped after this long; 0 - never
+  "ShuffleNoWeaponItems": true     Shuffle under Street Brawl rules: no weapon items in the item draft
+  "Trace": false                   true - also log every client command and key press (a large log)
+  "Stats": true                    one line per finished match in AbilityDraft.stats.jsonl; /stats shows a summary
+  "Presets": {{}}                  named settings for /preset <name> (the config file shows an example)
 
 CLIENT ADDON (optional, for each player who wants it)
 clientside/pak01_dir.vpk in the repository, with install notes next to it. It must match the game build and is
