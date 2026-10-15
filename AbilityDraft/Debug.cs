@@ -161,6 +161,10 @@ public sealed partial class DraftPlugin
             case "statspage":
                 Log($"statistics page: {WriteStatsPage() ?? "nothing recorded"}");
                 break;
+            case "votetime":
+                VoteSeconds = float.Parse(a[0], System.Globalization.CultureInfo.InvariantCulture);
+                Log($"vote step = {VoteSeconds} s");
+                break;
             case "forceformat":
                 _forcedFormat = ParseFormat(a[0]);
                 Log($"forced format = {_forcedFormat}");

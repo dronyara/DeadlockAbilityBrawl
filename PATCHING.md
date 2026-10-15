@@ -66,7 +66,7 @@ The plugin relies on these server convars and commands:
 - `citadel_street_brawl_reset` — starts a Street Brawl match on the running map (it does so whatever the convar says);
 - `citadel_active_lane` — Street Brawl sets it to one lane and never resets it; the plugin puts it back to `0`.
 - `CStreetBrawlController` inside the game rules (`CCitadelGameRules.m_tStreetBrawl`, found through the schema):
-  `m_eStreetBrawlState` (`2` is the buy phase on build 6774) and `m_flNextStateTime`. While somebody is still
+  `m_eStreetBrawlState` (`2` is the buy phase on builds 6774-6785) and `m_flNextStateTime`. While somebody is still
   drafting, the plugin pushes that time back every tick, which is what stops the timer. If the draft is cut off by
   the round again, check the state number with `brawl` in `%TEMP%bilitydraft.cmd` and fix `BrawlBuyPhase` in
   `AbilityDraft/Brawl.cs`.
@@ -87,7 +87,8 @@ unpickable.
 
 1. Decompile `scripts/heroes.vdata_c` and `scripts/abilities.vdata_c` from `game/citadel/pak01_dir.vpk` with
    [Source 2 Viewer](https://valveresourceformat.github.io/) and save them as `data/heroes.vdata` and
-   `data/abilities.vdata`.
+   `data/abilities.vdata`. Use a current Source 2 Viewer: build 6785 brought a new value type into these files, and
+   older readers stop on it (`Unknown KVType ... 26`) and write out nothing.
 2. `python tools\gen_pool.py data "<Deadlock folder>" AbilityDraft\AbilityPool.g.cs`
 3. `dotnet build AbilityDraft -c Release`
 
