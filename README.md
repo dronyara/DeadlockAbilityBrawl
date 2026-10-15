@@ -189,6 +189,9 @@ Deadworks stops starting until its next release, and the plugin's own signatures
   v1.2.1). It has not been reproduced: on the author's server four players respawned dozens of times in an evening
   without it. If it happens to you, the client's crash dump from `game\bin\win64` and a try without the addon
   are what will tell where it comes from.
+- v1.4 is for build 6785 with Deadworks v0.6.1; it was checked with bots and by loading the addon in a client.
+- **With the Deadworks launcher installed**, the launcher rewrites `gameinfo.gi` and the client addon's line can go
+  missing, so the cards stop being clickable. `clientside/README.md` says where the line goes.
 - v1.3 (build 6774, Deadworks v0.6.0): the look of the panels and the two-step vote were seen in game by one player;
   v1.2.1 was played by a lobby of four. Checked with bots only: keeping a kit, a draft seat or a vote through a
   reconnect, the held result screen, presets, the match record, passives on a clock and the item filter in Shuffle.

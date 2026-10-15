@@ -38,7 +38,7 @@ A server-side Deadworks plugin: players draft four abilities from other heroes o
 draft screen, then play Standard or Street Brawl. Players need to install nothing; an optional client
 addon (clientside/pak01_dir.vpk in the repository) adds mouse picks and a working TAB upgrade view.
 
-Built and tested against Deadlock build {build or "?"} with Deadworks v0.6.0.
+Built and tested against Deadlock build {build or "?"} with Deadworks v0.6.1.
 
 INSTALL (the server owner only)
 1. Deadlock installed from Steam (or a separate copy through SteamCMD, app 1422450).

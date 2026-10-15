@@ -67,7 +67,7 @@ advance = `server.dll+0x7f0670`.
 - `citadel_street_brawl_reset` — запускает матч Street Brawl на текущей карте (при любом значении переменной);
 - `citadel_active_lane` — Street Brawl ставит одну линию и обратно не возвращает; плагин сбрасывает её в `0`.
 - `CStreetBrawlController` внутри правил игры (`CCitadelGameRules.m_tStreetBrawl`, находится через схему):
-  `m_eStreetBrawlState` (`2` — фаза покупки на сборке 6774) и `m_flNextStateTime`. Пока кто-то ещё выбирает
+  `m_eStreetBrawlState` (`2` — фаза покупки на сборках 6774-6785) и `m_flNextStateTime`. Пока кто-то ещё выбирает
   способности, плагин каждый тик отодвигает это время — так и останавливается таймер. Если драфт снова обрывается
   раундом, проверьте номер состояния командой `brawl` в `%TEMP%bilitydraft.cmd` и поправьте `BrawlBuyPhase` в
   `AbilityDraft/Brawl.cs`.
@@ -86,7 +86,8 @@ Standard после драфта — это перезагрузка карты,
 
 1. Декомпилируйте `scripts/heroes.vdata_c` и `scripts/abilities.vdata_c` из `game/citadel/pak01_dir.vpk` через
    [Source 2 Viewer](https://valveresourceformat.github.io/) и сохраните как `data/heroes.vdata` и
-   `data/abilities.vdata`.
+   `data/abilities.vdata`. Нужен свежий Source 2 Viewer: в сборке 6785 в этих файлах появился новый тип значения,
+   и старые версии на нём останавливаются (`Unknown KVType ... 26`) и ничего не пишут.
 2. `python tools\gen_pool.py data "<папка Deadlock>" AbilityDraft\AbilityPool.g.cs`
 3. `dotnet build AbilityDraft -c Release`
 
