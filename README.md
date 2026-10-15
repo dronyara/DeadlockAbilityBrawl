@@ -8,8 +8,6 @@ from other heroes on the Street Brawl draft screen, then the lobby plays Standar
 Everything runs on a server you host; players join with `connect` and need to install nothing. An optional client
 addon ([`clientside/`](clientside)) adds mouse picks on the draft screen and a working TAB upgrade view.
 
-![The stock draft screen showing ability cards](showcase/native-draft-1-of-4.png)
-
 ## How a game goes
 1. Somebody starts the server. Players open the Deadlock console and type `connect <ip>:27067`, then pick heroes
    (the usual way, or `/hero haze` and `/team amber|sapphire` in chat). A hero somebody already has cannot be picked.
