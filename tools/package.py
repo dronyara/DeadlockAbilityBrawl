@@ -62,7 +62,7 @@ PLAY
   once it has run its course). /chaos instead of /draft skips the format vote.
 - The match starts and the draft screen opens with ability cards. Take a card by typing 1, 2 or 3 in chat
   (left, top, right). Four picks, the last one is the ultimate; three rerolls per pick with the Reroll button.
-  With the client addon, type /vpk before the draft and click the cards instead.
+  With the client addon the server switches clickable cards on by itself; /vpk off switches them off.
   No two players get the same ability.
 - Street Brawl: after the fourth ability the same screen goes on to the usual items; the kit starts unlocked.
   Standard: the map reloads once everyone is done, and every player gets their team, hero and kit back.

@@ -45,7 +45,7 @@ public sealed partial class DraftPlugin
     public override HookResult OnClientConCommand(ClientConCommandEvent args)
     {
         if (TraceClientCommands) Log($"clientcmd slot={args.Controller?.Slot} {args.Command} [{string.Join(" ", args.Args)}]");
-        if (NativeBuyClick(args) || PickAck(args) || TrainCommand(args) || ImbueCommand(args)) return HookResult.Stop;
+        if (AddonHello(args) || NativeBuyClick(args) || PickAck(args) || TrainCommand(args) || ImbueCommand(args)) return HookResult.Stop;
         if (args.Command == "ad_dbg")
         {
             // The addon script reporting what it sees on the client's screen.

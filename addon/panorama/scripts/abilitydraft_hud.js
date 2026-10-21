@@ -1,5 +1,6 @@
 // Ability Draft: the client half of what the stock UI only does for the hero's ORIGINAL abilities.
-// Loaded by the server through the Deadworks UI bridge, for a player in a draft or holding a drafted kit. It is told:
+// Loaded by the server through the Deadworks UI bridge for every player whose client has the bridge; it answers
+// "ad_hello" at once, which is how the server knows the addon is there. It is told:
 //   train  = 1   the kit is live: a button over each of the four ability icons (TAB view) asks the server to train
 //                "the ability in slot N"
 //   skills       "<bits>:<can>" per slot (bit 0 unlocked, bits 1-3 the tiers, can = the next step is affordable):
@@ -13,6 +14,7 @@
 (function () {
 	'use strict';
 	var COST = [1, 2, 5];
+	var PROTOCOL = 1;       // sent with "ad_hello": what this addon understands, for a server that wants to know
 	var slots = [], boundHud = null, enabled = false, alive = false, warned = false;
 	var skills = '', lastBuy = '', pickSeq = 0, dealtSeq = 0, marked = [], handover = false, handoverUntil = 0;
 
@@ -162,6 +164,9 @@
 		// Requests that were already there when the panel (re)loaded are old: do not act on them again.
 		init: function (p) {
 			alive = true;
+			// The server loads this script for every player with the bridge; the answer tells it this player has the
+			// addon itself (the bridge alone can come from the Deadworks launcher), so the draft cards are clickable.
+			$.DispatchEvent('CitadelConCommand', 'ad_hello ' + PROTOCOL);
 			lastBuy = p.get('buy', '');
 			pickSeq = parseInt(p.get('pick', '').split('|')[0], 10) || 0;
 			read(p);

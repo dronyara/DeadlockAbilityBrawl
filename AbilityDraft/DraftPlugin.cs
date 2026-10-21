@@ -187,6 +187,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     {
         if (args.IsMapChange) return;
         if (_seats.Remove(args.Slot, out var gone)) ClearBillboard(gone);
+        if (_steamOfSlot.TryGetValue(args.Slot, out ulong leaving)) ForgetAddon(leaving);
         WentAway(args.Slot);
         _kits.Remove(args.Slot);
         if (args.Slot == _hostSlot)

@@ -29,7 +29,7 @@ public sealed partial class DraftPlugin
 
     // ---- the client's addon script ---------------------------------------------------------------------------
     // Clients with the optional addon carry the Deadworks UI bridge and a small script (addon/panorama). The server
-    // loads it for a player from the moment their draft begins and tells it:
+    // loads it for every player whose client has the bridge; the script says "ad_hello" back, and it is told:
     //   "train"  1 while the player holds a drafted kit in a running match: clicks in the TAB view are live
     //   "skills" the kit's upgrade state, which the script shows on the game's own upgrade pips - the client works
     //            those out for the hero's original abilities and would leave them empty
@@ -52,10 +52,9 @@ public sealed partial class DraftPlugin
         {
             if (c.IsBot || !UI.HasClientBootstrap(c.Slot)) continue;
             bool train = _phase == Phase.Match && _kits.ContainsKey(c.Slot);
+            // Loaded for everyone with the bridge, from the lobby on: the script answers "ad_hello" when the player has
+            // the addon, which switches their draft cards to clickable before the draft (NativeDraft.cs).
             bool loaded = _trainHud.TryGetValue(c.Slot, out bool told);
-            // In a draft the script is loaded once the first cards are out, not when the match starts.
-            bool drafting = _native.TryGetValue(c.Slot, out var seat) && seat.SavedRerolls >= 0;
-            if (!loaded && !train && !drafting) continue;
             if (!_trainHudWired)
             {
                 _trainHudWired = true;

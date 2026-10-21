@@ -30,7 +30,7 @@ addon ([`clientside/`](clientside)) adds mouse picks on the draft screen and a w
 4. The match starts and the **stock Street Brawl draft screen opens with ability cards**. Four picks, the last one
    is the ultimate, with three rerolls per pick on the stock Reroll button.
    **Take a card by typing its number in chat: Enter → `1`, `2` or `3` → Enter (left, top, right).** The message is
-   not shown to anyone. With the client addon and `/vpk` a card can simply be clicked. `/reroll` in chat does
+   not shown to anyone. With the client addon a card can simply be clicked: the server finds the addon by itself. `/reroll` in chat does
    what the Reroll button does.
 5. Street Brawl: after the fourth ability the same screen goes on to the usual items, and the match continues as
    Street Brawl.
@@ -160,8 +160,9 @@ Every text the plugin shows (chat, panels, announcements, command errors) is in 
 [`clientside/pak01_dir.vpk`](clientside) is ready to install; [`clientside/README.md`](clientside/README.md) says
 how. Players with and without it play in the same lobby. It adds:
 
-- **Clickable draft cards with the ability's tooltip.** Type `/vpk` in chat before the draft. Every ability gets a
-  twin item (`ad_<ability>`) the stock screen can safely "buy"; the plugin answers the purchase with the ability.
+- **Clickable draft cards with the ability's tooltip.** The server notices the addon when the player joins and
+  switches the clicks on; `/vpk off` switches them off (an addon from v1.5 or older still needs `/vpk` typed in
+  chat before the draft). Every ability gets a twin item (`ad_<ability>`) the stock screen can safely "buy"; the plugin answers the purchase with the ability.
   The taken card grows and the other two fade, as in a normal Street Brawl draft.
 - **The TAB upgrade view.** A click on an ability trains it, and the upgrade pips show the drafted kit's real state.
   This part comes through the Deadworks UI bridge, which the VPK includes unchanged.
