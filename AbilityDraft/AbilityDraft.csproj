@@ -17,6 +17,10 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <!-- The shipped languages: written out to AbilityDraft.lang next to the plugin on the first start. -->
+    <EmbeddedResource Include="Lang\*.json" />
+  </ItemGroup>
   <Target Name="DeployToGame" AfterTargets="Build">
     <Copy SourceFiles="$(OutputPath)AbilityDraft.dll;$(OutputPath)AbilityDraft.pdb" DestinationFolder="$(ManagedDir)\plugins" SkipUnchangedFiles="false" Retries="0" ContinueOnError="WarnAndContinue" />
   </Target>

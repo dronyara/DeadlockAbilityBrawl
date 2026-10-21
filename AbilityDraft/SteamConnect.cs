@@ -55,7 +55,7 @@ public sealed partial class DraftPlugin
     {
         var text = SteamConnectReady
             ? $"[Draft] connect {_steamConnect}"
-            : L("[Draft] Вход через Steam недоступен, используйте connect <ip>:27067", "[Draft] Steam connect is not available, use connect <ip>:27067");
+            : Tl(caller != null ? LangOf(caller.Slot) : _lang, "lobby.steam_unavailable");
         if (caller != null) Chat.PrintToChat(caller, text);
         Log(text);
     }

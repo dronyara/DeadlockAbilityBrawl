@@ -63,11 +63,12 @@ public sealed partial class DraftPlugin
         }
 
         var players = Players.GetAll().Where(p => !p.IsBot).OrderBy(p => p.Slot).ToList();
-        string shown = $"{_lobbyPreset}|{string.Join(",", _config.Presets.Keys)}|" + string.Join(";", players.Select(p => $"{p.Slot}:{p.PlayerName}:{p.GetHeroPawn()?.HeroID}"));
+        string lang = LangOf(leader);
+        string shown = $"{lang}|{_lobbyPreset}|{string.Join(",", _config.Presets.Keys)}|" + string.Join(";", players.Select(p => $"{p.Slot}:{p.PlayerName}:{p.GetHeroPawn()?.HeroID}"));
         if (leader == _lobbyPanelSlot && shown == _lobbyPanelShown) return;
         _lobbyPanelSlot = leader;
         _lobbyPanelShown = shown;
-        UI.Panel(LobbyPanelId).BuildLayout(RecipientFilter.Single(leader), LobbyLayout(players, _seats.TryGetValue(leader, out var seat) ? seat.Ru : _ru));
+        UI.Panel(LobbyPanelId).BuildLayout(RecipientFilter.Single(leader), LobbyLayout(players, lang));
     }
 
     void LobbyResync(int slot)
@@ -76,13 +77,13 @@ public sealed partial class DraftPlugin
         _summaryShown.Remove(slot);
     }
 
-    UINode LobbyLayout(List<CCitadelPlayerController> players, bool ru)
+    UINode LobbyLayout(List<CCitadelPlayerController> players, string lang)
     {
         (string, string)[] section = [("font-size", "15px"), ("color", VoteDim), ("letter-spacing", "2px"), ("margin-top", "12px")];
         var body = UI.Vertical("al_body").WithStyles(("width", "100%"), ("padding", "2px 16px 12px 16px"));
 
-        body.Add(UI.Label("al_presets", ru ? "ПРЕСЕТ" : "PRESET").WithStyles(section));
-        body.Add(Outlined("al_p_none", ru ? "Голосование за всё" : "Vote for everything", "lobbypreset", "", _lobbyPreset == null).WithStyles(("width", "100%"), ("margin-top", "6px")));
+        body.Add(UI.Label("al_presets", Tl(lang, "panel.preset")).WithStyles(section));
+        body.Add(Outlined("al_p_none", Tl(lang, "panel.vote_everything"), "lobbypreset", "", _lobbyPreset == null).WithStyles(("width", "100%"), ("margin-top", "6px")));
         int n = 0;
         foreach (var name in _config.Presets.Keys)
             body.Add(Outlined($"al_p{n++}", name, "lobbypreset", name, name.Equals(_lobbyPreset, StringComparison.OrdinalIgnoreCase)).WithStyles(("width", "100%"), ("margin-top", "6px")));
@@ -98,19 +99,19 @@ public sealed partial class DraftPlugin
             row.Add(icon != null
                 ? UI.Image($"al_i{n}", icon).WithStyles(("width", "30px"), ("height", "30px"), ("margin", "4px 8px 0px 6px"), ("border-radius", "50%"))
                 : UI.Label($"al_i{n}", "?").WithStyles(("width", "30px"), ("font-size", "22px"), ("color", "#d85a30"), ("margin", "4px 8px 0px 14px")));
-            row.Add(UI.Label($"al_n{n}", p.PlayerName + (p.Slot == Host() ? (ru ? "  (лидер)" : "  (leader)") : "")).WithStyles(("font-size", "17px"), ("color", VoteText), ("vertical-align", "center")));
+            row.Add(UI.Label($"al_n{n}", p.PlayerName + (p.Slot == Host() ? Tl(lang, "panel.leader") : "")).WithStyles(("font-size", "17px"), ("color", VoteText), ("vertical-align", "center")));
             if (icon == null)
-                row.Add(UI.Label($"al_h{n}", ru ? "   нет героя" : "   no hero").WithStyles(("font-size", "14px"), ("color", "#f09a7a"), ("vertical-align", "center")));
+                row.Add(UI.Label($"al_h{n}", Tl(lang, "panel.no_hero")).WithStyles(("font-size", "14px"), ("color", "#f09a7a"), ("vertical-align", "center")));
             list.Add(row);
             n++;
         }
-        body.Add(Card("al_players", (ru ? "ИГРОКИ " : "PLAYERS ") + $"{players.Count}/{Math.Max(_config.MaxPlayersStandard, _config.MaxPlayersStreetBrawl)}", true, list,
+        body.Add(Card("al_players", Tl(lang, "panel.players", players.Count, Math.Max(_config.MaxPlayersStandard, _config.MaxPlayersStreetBrawl)), true, list,
             ("width", "100%"), ("margin-top", "14px")));
 
-        body.Add(Outlined("al_start", ru ? "Начать" : "Start", "lobbystart", "", chosen: true).WithStyles(("width", "100%"), ("height", "50px"), ("margin-top", "14px")));
+        body.Add(Outlined("al_start", Tl(lang, "panel.start"), "lobbystart", "", chosen: true).WithStyles(("width", "100%"), ("height", "50px"), ("margin-top", "14px")));
 
-        var sheet = Sheet("al_window", ru ? "ЛОББИ" : "LOBBY", [Caps("al_sub", "ABILITY BRAWL")], body,
-            ru ? "Удерживай TAB, чтобы нажимать мышью. /draft и /preset работают как раньше." : "Hold TAB to use the mouse. /draft and /preset still work.",
+        var sheet = Sheet("al_window", Tl(lang, "panel.lobby"), [Caps("al_sub", "ABILITY BRAWL")], body,
+            Tl(lang, "panel.lobby_hint"),
             ("width", "360px"), ("horizontal-align", "right"), ("vertical-align", "center"), ("margin-right", "24px"));
         return UI.Container("al_root").WithStyles(("width", "100%"), ("height", "100%")).Add(sheet);
     }
@@ -128,8 +129,7 @@ public sealed partial class DraftPlugin
         _summaryShown.Clear();
         foreach (int slot in viewers)
         {
-            bool ru = _seats.TryGetValue(slot, out var seat) ? seat.Ru : _ru;
-            UI.Panel(SummaryPanelId).BuildLayout(RecipientFilter.Single(slot), KitsLayout(ru));
+            UI.Panel(SummaryPanelId).BuildLayout(RecipientFilter.Single(slot), KitsLayout(LangOf(slot)));
             _summaryShown.Add(slot);
         }
         int seq = ++_summarySeq;
@@ -142,7 +142,7 @@ public sealed partial class DraftPlugin
         });
     }
 
-    UINode KitsLayout(bool ru)
+    UINode KitsLayout(string lang)
     {
         UINode Team(string id, int team, string title, bool amber)
         {
@@ -168,9 +168,9 @@ public sealed partial class DraftPlugin
         }
 
         var teams = UI.Horizontal("ak_teams").WithStyles(("horizontal-align", "center"), ("margin", "16px 8px 14px 8px"));
-        teams.Add(Team("ak_amber", 2, ru ? "ЯНТАРНАЯ РУКА" : "THE AMBER HAND", true), Team("ak_sapphire", 3, ru ? "САПФИРОВОЕ ПЛАМЯ" : "THE SAPPHIRE FLAME", false));
-        var sheet = Sheet("ak_window", ru ? "НАБОРЫ" : "KITS",
-            [Caps("ak_sub", FormatName(_format, ru).ToUpperInvariant()), Caps("ak_rules", "-   " + RulesName(_rules).ToUpperInvariant())], teams, null,
+        teams.Add(Team("ak_amber", 2, Tl(lang, "panel.team_amber"), true), Team("ak_sapphire", 3, Tl(lang, "panel.team_sapphire"), false));
+        var sheet = Sheet("ak_window", Tl(lang, "panel.kits"),
+            [Caps("ak_sub", FormatName(_format, lang).ToUpperInvariant()), Caps("ak_rules", "-   " + RulesName(_rules).ToUpperInvariant())], teams, null,
             ("horizontal-align", "center"), ("vertical-align", "top"), ("margin-top", "90px"));
         return UI.Container("ak_root").WithStyles(("width", "100%"), ("height", "100%")).Add(sheet);
     }
@@ -180,14 +180,14 @@ public sealed partial class DraftPlugin
     readonly Dictionary<int, int> _tossSeq = new();
 
     /// <summary>A small note above the ability bar for a client with the bridge. Returns false when there is none.</summary>
-    bool ShowSwap(CCitadelPlayerController c, int slot, AbilityDef next, bool ru)
+    bool ShowSwap(CCitadelPlayerController c, int slot, AbilityDef next, string lang)
     {
         if (!HasBridge(c.Slot)) return false;
         var to = RecipientFilter.Single(c.Slot);
         var note = UI.Horizontal("as_note").WithStyles(("horizontal-align", "center"), ("vertical-align", "bottom"), ("margin-bottom", "190px"),
             ("background-color", SapphireFill), ("border-top", $"2px solid {SapphireEdge}"), ("padding", "6px 16px 6px 8px")).Add(
             UI.Image("as_icon", next.Icon).WithStyles(("width", "40px"), ("height", "40px"), ("border-radius", "50%"), ("background-color", TileFill)),
-            UI.Label("as_text", $"{slot + 1}  ·  {next.Title(ru)}").WithStyles(("font-size", "20px"), ("color", VoteText), ("vertical-align", "center"), ("margin-left", "10px")));
+            UI.Label("as_text", $"{slot + 1}  ·  {next.Title(lang)}").WithStyles(("font-size", "20px"), ("color", VoteText), ("vertical-align", "center"), ("margin-left", "10px")));
         UI.Panel(TossPanelId).BuildLayout(to, UI.Container("as_root").WithStyles(("width", "100%"), ("height", "100%")).Add(note));
         int player = c.Slot, seq = _tossSeq[player] = _tossSeq.GetValueOrDefault(player) + 1;
         Timer.Once(TimeSpan.FromSeconds(2.5), () =>

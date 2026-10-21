@@ -12,19 +12,15 @@ public sealed partial class DraftPlugin
     Format _format = Format.None;
     Format _forcedFormat;               // set by /chaos (and the test bridge): the vote is then about the rules only
 
-    static string FormatName(Format f, bool ru) => f switch
+    static string FormatKey(Format f) => f switch
     {
-        Format.Chaos => ru ? "Хаос" : "Chaos",
-        Format.Shuffle => ru ? "Перетасовка" : "Shuffle",
-        _ => ru ? "Драфт" : "Draft",
+        Format.Chaos => "format.chaos",
+        Format.Shuffle => "format.shuffle",
+        _ => "format.draft",
     };
 
-    static string FormatHint(Format f, bool ru) => f switch
-    {
-        Format.Chaos => ru ? "случайные герои и способности" : "random heroes and abilities",
-        Format.Shuffle => ru ? "способность меняется после каждого применения" : "an ability changes after each use",
-        _ => ru ? "каждый выбирает 4 способности" : "everyone picks 4 abilities",
-    };
+    static string FormatName(Format f, string lang) => Tl(lang, FormatKey(f));
+    static string FormatHint(Format f, string lang) => Tl(lang, FormatKey(f) + "_hint");
 
     void CastFormat(int slot, Format f)
     {
@@ -32,16 +28,16 @@ public sealed partial class DraftPlugin
         s.FormatVote = f;
         Log($"slot {slot} votes for format {f}");
         var name = Players.FromSlot(slot)?.PlayerName ?? $"#{slot}";
-        Chat.PrintToChatAll($"[Draft] {name}: {FormatName(f, _ru)}");
+        ChatAll(lang => $"[Draft] {name}: {FormatName(f, lang)}");
         RefreshVote();
     }
 
     [Command("format", Description = "Vote for the format: /format draft | chaos | shuffle")]
     public void CmdFormat(CCitadelPlayerController caller, string format)
     {
-        if (_phase != Phase.Voting) throw new CommandException("There is no vote right now.");
-        if (_forcedFormat != Format.None) throw new CommandException("The format is already set for this match.");
-        CastFormat(caller.Slot, ParseFormat(format) is var f && f != Format.None ? f : throw new CommandException("Use /format draft, /format chaos or /format shuffle."));
+        if (_phase != Phase.Voting) throw Fail(caller, "error.no_vote");
+        if (_forcedFormat != Format.None) throw Fail(caller, "error.format_set");
+        CastFormat(caller.Slot, ParseFormat(format) is var f && f != Format.None ? f : throw Fail(caller, "error.format_usage"));
     }
 
     static Format ParseFormat(string text) => text.Trim().ToLowerInvariant() switch
@@ -87,7 +83,10 @@ public sealed partial class DraftPlugin
             BindHeroKit(pawn.HeroID, seat.Slot, names);
             ApplyKit(pawn, names);
             if (!seat.Bot)
-                Chat.PrintToChat(c, "[Draft] " + (seat.Ru ? "Твой набор: " : "Your kit: ") + string.Join(", ", names.Select(k => AbilityPool.Find(k)?.Title(seat.Ru) ?? k)));
+            {
+                string lang = LangOf(seat.Slot);
+                Chat.PrintToChat(c, Tl(lang, "draft.your_kit", string.Join(", ", names.Select(k => AbilityPool.Find(k)?.Title(lang) ?? k))));
+            }
             Log($"shuffle slot {seat.Slot} ({c.PlayerName}): {pawn.HeroID} [{string.Join(", ", names)}]");
         }
     }
@@ -199,7 +198,7 @@ public sealed partial class DraftPlugin
         _shuffleSince[(c.Slot, slot)] = Now;
         Log($"shuffle slot {c.Slot}: {was} -> {next.Name} (slot {slot + 1})");
         if (c.IsBot) return;
-        bool ru = _seats.TryGetValue(c.Slot, out var seat) ? seat.Ru : _ru;
-        if (!ShowSwap(c, slot, next, ru)) Chat.PrintToChat(c, $"[Draft] {slot + 1}: {next.Title(ru)}");
+        string lang = LangOf(c.Slot);
+        if (!ShowSwap(c, slot, next, lang)) Chat.PrintToChat(c, $"[Draft] {slot + 1}: {next.Title(lang)}");
     }
 }

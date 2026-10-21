@@ -40,7 +40,7 @@ def cs(s):
 
 
 # Still marked "in development" in the game data, yet on the hero select screen and playable.
-PLAYABLE_ANYWAY = {"hero_baba"}
+PLAYABLE_ANYWAY = {"hero_baba", "hero_artist"}
 # Not pickable: only their abilities go into the pool.
 UNRELEASED = set()
 ab = blocks(abil)

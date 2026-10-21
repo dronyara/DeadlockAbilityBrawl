@@ -12,7 +12,7 @@ public sealed partial class DraftPlugin
     {
         /// <summary>Abilities never offered in the draft: internal names, or the English or Russian names shown in game.</summary>
         public List<string> Blacklist { get; set; } = new();
-        /// <summary>Language of the plugin's messages: "en" or "ru". A player can still switch their own with /lang.</summary>
+        /// <summary>The server's language: a file name in AbilityDraft.lang ("en", "ru", ...). A player can still pick their own with /lang.</summary>
         public string Language { get; set; } = "en";
         /// <summary>How many players the lobby takes. More than MaxPlayersStreetBrawl can only play Standard.</summary>
         public int MaxPlayersStandard { get; set; } = 12;
@@ -42,10 +42,6 @@ public sealed partial class DraftPlugin
     }
 
     ConfigFile _config = new();
-    static bool _ru;                // the configured language; seats start with it
-
-    /// <summary>A message in the configured language.</summary>
-    static string L(string ru, string en) => _ru ? ru : en;
 
     static readonly JsonSerializerOptions ConfigJson = new()
     {
@@ -81,7 +77,13 @@ public sealed partial class DraftPlugin
             if (preset != null) ApplyPreset(config, preset);
             _config = config;
             _trace = config.Trace;
-            _ru = config.Language.Trim().StartsWith("ru", StringComparison.OrdinalIgnoreCase);
+            LoadLanguages();
+            _lang = LangCode(config.Language);
+            if (!Languages.ContainsKey(_lang))
+            {
+                Log($"config: no language file for \"{config.Language}\" in {LangDir} - using English");
+                _lang = FallbackLang;
+            }
             if (_logging && !config.Logging) Log("config: logging is switched off from here on");
             _logging = config.Logging;
             var unknown = new List<string>();
@@ -94,7 +96,7 @@ public sealed partial class DraftPlugin
                 if (hits.Count == 0) unknown.Add(entry);
                 foreach (var a in hits) _blacklist.Add(a.Name);
             }
-            Log($"config: language {(_ru ? "ru" : "en")}, players {config.MaxPlayersStandard} (Street Brawl {config.MaxPlayersStreetBrawl}), unique heroes {config.UniqueHeroes}, " +
+            Log($"config: language {_lang} (available: {string.Join(", ", Languages.Keys.OrderBy(k => k))}), players {config.MaxPlayersStandard} (Street Brawl {config.MaxPlayersStreetBrawl}), unique heroes {config.UniqueHeroes}, " +
                 $"{_blacklist.Count} abilities blacklisted{(_blacklist.Count > 0 ? " (" + string.Join(", ", _blacklist) + ")" : "")}" +
                 (unknown.Count > 0 ? $"; NOT RECOGNISED: {string.Join(", ", unknown)}" : ""));
         }
@@ -108,7 +110,9 @@ public sealed partial class DraftPlugin
         File.WriteAllText(ConfigPath, "// Ability Draft settings. Read at every map start and on /draft.\n" +
             "// Blacklist: abilities that are never offered. Use the internal name or the English / Russian name\n" +
             "//   from AbilityDraft.abilities.txt, for example: \"Blacklist\": [\"Hotel Guest\", \"ability_frank_revive\"]\n" +
-            "// Language: \"en\" or \"ru\" - the language of the plugin's messages.\n" +
+            "// Language: the server's language - \"en\", \"ru\" or any other file in the AbilityDraft.lang folder.\n" +
+            "//   Every text is in those files: edit them, or copy en.json to a new code (de.json) to translate.\n" +
+            "//   Each player can pick their own language with /lang.\n" +
             "// MaxPlayersStandard / MaxPlayersStreetBrawl: how many players the lobby takes; with more than the\n" +
             "//   Street Brawl number in the lobby only Standard can be played.\n" +
             "// UniqueHeroes: true - a hero somebody already has cannot be picked.\n" +

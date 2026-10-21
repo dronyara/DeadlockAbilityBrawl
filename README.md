@@ -108,8 +108,8 @@ map start and on `/draft`:
 ```
 - `Blacklist` — abilities that are never offered. Use the internal name or the English or Russian name; all of them
   are in `AbilityDraft.abilities.txt` next to the config. Names the plugin does not recognise are reported in the log.
-- `Language` — `"en"` or `"ru"`: the language of the plugin's messages. A player can switch their own with
-  `/lang ru` or `/lang en`.
+- `Language` — the server's language: `"en"`, `"ru"` or any other language file (see below). Each player can pick
+  their own with `/lang <code>`; `/lang` alone lists the languages there are.
 - `MaxPlayersStandard`, `MaxPlayersStreetBrawl` — how many players the lobby takes; a player over the larger number
   is turned away. With more players in the lobby than the Street Brawl number, a vote for Street Brawl plays Standard.
 - `UniqueHeroes` — `true`: a hero somebody already has cannot be picked.
@@ -135,6 +135,26 @@ map start and on `/draft`:
   its own lists them. `Rules` is `standard`, `brawl` or `vote`; `Format` is `draft`, `chaos`, `shuffle` or `vote`;
   whatever is fixed is not voted on. A preset may also carry its own `Blacklist`, `DraftTimeLimit`,
   `ShuffleSeconds`, `ShufflePassiveSeconds` and `ShuffleNoWeaponItems`; the rest comes from the main settings.
+
+### Languages
+Every text the plugin shows (chat, panels, announcements, command errors) is in a language file:
+`AbilityDraft.lang/<code>.json` next to the config, one text per key:
+
+```jsonc
+{
+  "draft.your_kit": "[Draft] Your kit: {0}",
+  "vote.count": "-   {0}/{1} VOTED"
+}
+```
+
+- English (`en.json`) and Russian (`ru.json`) are inside the plugin and are written out on the first start. Edit
+  them freely: an update adds its new texts to these files and keeps your changes.
+- To add a language, copy `en.json` to a new name (`de.json`, `pt-br.json`), translate the texts and restart the
+  map. The file name is the code for `Language` and `/lang`. A text missing from the file is shown in English.
+- `{0}`, `{1}`, … stand for what the plugin puts in: a number, a name, a list of abilities. Keep them; their order
+  in the sentence can change.
+- Ability and hero names come from the game's own data, which the plugin has in English and Russian only: other
+  languages show the English names.
 
 ## Optional client addon
 [`clientside/pak01_dir.vpk`](clientside) is ready to install; [`clientside/README.md`](clientside/README.md) says
@@ -187,7 +207,9 @@ Deadworks stops starting until its next release, and the plugin's own signatures
   v1.2.1). It has not been reproduced: on the author's server four players respawned dozens of times in an evening
   without it. If it happens to you, the client's crash dump from `game\bin\win64` and a try without the addon
   are what will tell where it comes from.
-- v1.4 is for build 6785 with Deadworks v0.6.1; it was checked with bots and by loading the addon in a client.
+- v1.5 is for build 6807 with Deadworks v0.6.2 (older Deadworks versions do not start on this build); the server
+  was checked with bots. Violet and Nurse Harrow (new in this version) were tried with bots only: their abilities
+  on another hero, and picking them. v1.4 (build 6785) was also checked by loading the addon in a client.
 - **With the Deadworks launcher installed**, the launcher rewrites `gameinfo.gi` and the client addon's line can go
   missing, so the cards stop being clickable. `clientside/README.md` says where the line goes.
 - v1.3 (build 6774, Deadworks v0.6.0): the look of the panels and the two-step vote were seen in game by one player;

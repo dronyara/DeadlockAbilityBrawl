@@ -3,8 +3,11 @@ namespace AbilityDraft;
 /// <summary>One hero ability that can be offered in the draft. <see cref="Slot"/> is its 1-4 position on the original hero.</summary>
 public sealed record AbilityDef(string Hero, string HeroEn, string HeroRu, int Slot, string Name, string En, string Ru, bool Ult, string Icon)
 {
-    public string Title(bool ru) => ru ? Ru : En;
-    public string HeroTitle(bool ru) => ru ? HeroRu : HeroEn;
+    // Ability and hero names come from the game's own localisation, which the pool carries in English and Russian only;
+    // every other language shows the English names.
+    static bool Russian(string lang) => lang.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
+    public string Title(string lang) => Russian(lang) ? Ru : En;
+    public string HeroTitle(string lang) => Russian(lang) ? HeroRu : HeroEn;
 }
 
 public static partial class AbilityPool

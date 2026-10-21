@@ -59,10 +59,10 @@ public sealed partial class DraftPlugin
         var c = Players.FromSlot(s.Slot);
         if (c == null) return;
 
-        string Line(int i) => s.Offer[i] is { } a ? $"[{i + 1}]  {a.Title(s.Ru)}  ·  {a.HeroTitle(s.Ru)}   (x{s.Rerolls[i]})" : $"[{i + 1}]  —";
-        bool ult = s.Round == Slots - 1;
-        var title = s.Ru ? $"СПОСОБНОСТЬ {s.Round + 1}/{Slots}{(ult ? " · УЛЬТА" : "")}" : $"ABILITY {s.Round + 1}/{Slots}{(ult ? " · ULTIMATE" : "")}";
-        var keys = s.Ru ? "1-3 — взять    R+1-3 — заменить" : "1-3 pick    R+1-3 reroll";
+        string lang = LangOf(s.Slot);
+        string Line(int i) => s.Offer[i] is { } a ? $"[{i + 1}]  {a.Title(lang)}  ·  {a.HeroTitle(lang)}   (x{s.Rerolls[i]})" : $"[{i + 1}]  —";
+        var title = Tl(lang, s.Round == Slots - 1 ? "menu.title_ult" : "menu.title", s.Round + 1, Slots);
+        var keys = Tl(lang, "menu.keys");
         Chat.PrintToChat(c, $"{title}: {string.Join("  |  ", Enumerable.Range(0, Offers).Select(Line))}  ·  {keys}");
 
         if (!HasUi(s))
@@ -80,7 +80,7 @@ public sealed partial class DraftPlugin
 
     UINode OfferLayout(Seat s)
     {
-        bool ru = s.Ru;
+        string lang = LangOf(s.Slot);
         var row = UI.Horizontal("ad_row").WithStyles(("horizontal-align", "center"), ("margin-top", "24px"));
         for (int i = 0; i < Offers; i++)
         {
@@ -89,11 +89,11 @@ public sealed partial class DraftPlugin
             if (a != null)
                 card.Add(
                     UI.Image($"ad_icon{i}", a.Icon).WithStyles(("width", "120px"), ("height", "120px"), ("horizontal-align", "center")),
-                    UI.Label($"ad_name{i}", a.Title(ru)).WithStyles(("font-size", "26px"), ("color", "#f5e6c8"), ("horizontal-align", "center"), ("margin-top", "12px"), ("text-align", "center")),
-                    UI.Label($"ad_hero{i}", a.HeroTitle(ru)).WithStyles(("font-size", "18px"), ("color", "#9c9484"), ("horizontal-align", "center")),
-                    UI.Button($"ad_pick{i}", ru ? $"Взять [{i + 1}]" : $"Pick [{i + 1}]", "pick", i.ToString())
+                    UI.Label($"ad_name{i}", a.Title(lang)).WithStyles(("font-size", "26px"), ("color", "#f5e6c8"), ("horizontal-align", "center"), ("margin-top", "12px"), ("text-align", "center")),
+                    UI.Label($"ad_hero{i}", a.HeroTitle(lang)).WithStyles(("font-size", "18px"), ("color", "#9c9484"), ("horizontal-align", "center")),
+                    UI.Button($"ad_pick{i}", Tl(lang, "menu.pick", i + 1), "pick", i.ToString())
                         .WithStyles(ButtonStyle).WithHoverStyle("background-color", "#4f8a4a").WithTextStyles(ButtonText));
-            var rr = UI.Button($"ad_rr{i}", (ru ? "Заменить" : "Reroll") + $" ({s.Rerolls[i]})", "reroll", i.ToString())
+            var rr = UI.Button($"ad_rr{i}", Tl(lang, "menu.reroll", s.Rerolls[i]), "reroll", i.ToString())
                 .WithStyles(ButtonStyle).WithStyles(("background-color", s.Rerolls[i] > 0 ? "#5a4a2c" : "#2b2b2b"), ("border", "1px solid #b08d57"))
                 .WithTextStyles(ButtonText);
             card.Add(rr);
@@ -101,11 +101,9 @@ public sealed partial class DraftPlugin
         }
 
         var kit = string.Join("  ·  ", Enumerable.Range(0, Slots).Select(i =>
-            s.Kit[i] is { } k ? AbilityPool.Find(k)?.Title(ru) ?? k : i == s.Round ? "?" : "—"));
+            s.Kit[i] is { } k ? AbilityPool.Find(k)?.Title(lang) ?? k : i == s.Round ? "?" : "—"));
         return Frame(
-            UI.Label("ad_title", ru
-                ? $"ВЫБОР СПОСОБНОСТИ {s.Round + 1}/{Slots}{(s.Round == Slots - 1 ? " — УЛЬТА" : "")}"
-                : $"ABILITY DRAFT {s.Round + 1}/{Slots}{(s.Round == Slots - 1 ? " — ULTIMATE" : "")}").WithStyles(TitleStyle),
+            UI.Label("ad_title", Tl(lang, s.Round == Slots - 1 ? "menu.panel_title_ult" : "menu.panel_title", s.Round + 1, Slots)).WithStyles(TitleStyle),
             UI.Label("ad_timer", "").WithStyles(("font-size", "30px"), ("color", "#e8b04a"), ("horizontal-align", "center")),
             row,
             UI.Label("ad_kit", kit).WithStyles(("font-size", "20px"), ("color", "#c9c2b3"), ("horizontal-align", "center"), ("margin-top", "22px")));
@@ -125,18 +123,19 @@ public sealed partial class DraftPlugin
 
     void ShowWaiting(Seat s)
     {
+        string lang = LangOf(s.Slot);
         if (!HasUi(s))
         {
-            SetBillboard(s, (s.Ru ? "НАБОР ГОТОВ\n \n" : "KIT READY\n \n") + string.Join("\n", s.Kit.Select(k => AbilityPool.Find(k!)?.Title(s.Ru) ?? k))
-                + (s.Ru ? "\n \nЖдём остальных…" : "\n \nWaiting for the others…"));
+            SetBillboard(s, Tl(lang, "menu.kit_ready") + "\n \n" + string.Join("\n", s.Kit.Select(k => AbilityPool.Find(k!)?.Title(lang) ?? k))
+                + "\n \n" + Tl(lang, "menu.waiting"));
             return;
         }
         var to = RecipientFilter.Single(s.Slot);
-        var kit = string.Join("  ·  ", s.Kit.Select(k => AbilityPool.Find(k!)?.Title(s.Ru) ?? k));
+        var kit = string.Join("  ·  ", s.Kit.Select(k => AbilityPool.Find(k!)?.Title(lang) ?? k));
         UI.Panel(PanelId).BuildLayout(to, Frame(
-            UI.Label("ad_title", s.Ru ? "НАБОР ГОТОВ" : "KIT READY").WithStyles(TitleStyle),
+            UI.Label("ad_title", Tl(lang, "menu.kit_ready")).WithStyles(TitleStyle),
             UI.Label("ad_kit", kit).WithStyles(("font-size", "24px"), ("color", "#c9c2b3"), ("horizontal-align", "center"), ("margin-top", "16px")),
-            UI.Label("ad_wait", s.Ru ? "Ждём остальных игроков…" : "Waiting for the other players…")
+            UI.Label("ad_wait", Tl(lang, "menu.waiting"))
                 .WithStyles(("font-size", "20px"), ("color", "#9c9484"), ("horizontal-align", "center"), ("margin-top", "16px"))));
     }
 
@@ -146,24 +145,20 @@ public sealed partial class DraftPlugin
     {
         var c = Players.FromSlot(s.Slot);
         if (c == null) return;
-        bool ru = s.Ru;
+        string lang = LangOf(s.Slot);
         if (!s.VoteExplained)
         {
             s.VoteExplained = true;
-            Chat.PrintToChat(c, _voteStep == 1
-                ? (ru ? "[Draft] Правила: напиши в чат 1 — Standard, 2 — Street Brawl (или /vote standard, /vote brawl)"
-                      : "[Draft] Rules: type 1 for Standard, 2 for Street Brawl (or /vote standard, /vote brawl)")
-                : (ru ? "[Draft] Формат: 3 — Драфт, 4 — Хаос (случайные герои и способности), 5 — Перетасовка (способность меняется после применения)"
-                      : "[Draft] Format: 3 - Draft, 4 - Chaos (random heroes and abilities), 5 - Shuffle (an ability changes after each use)"));
+            Chat.PrintToChat(c, Tl(lang, _voteStep == 1 ? "vote.chat_rules" : "vote.chat_format"));
         }
         Format[] formats = [Format.Draft, Format.Chaos, Format.Shuffle];
         if (!HasUi(s))
         {
             string Mark(bool on) => on ? "  ✔" : "";
             string text = _voteStep == 1
-                ? (ru ? "ПРАВИЛА МАТЧА" : "MATCH RULES") + $"\n \n[1]  Standard{Mark(s.Vote == Rules.Standard)}\n[2]  Street Brawl{Mark(s.Vote == Rules.StreetBrawl)}"
-                : (ru ? "ПРАВИЛА: " : "RULES: ") + RulesName(_rules) + "\n \n" + (ru ? "ФОРМАТ" : "FORMAT") + "\n \n"
-                    + string.Join("\n", formats.Select((f, n) => $"[{n + 3}]  {FormatName(f, ru)}{Mark(s.FormatVote == f)}"));
+                ? Tl(lang, "vote.board_rules") + $"\n \n[1]  Standard{Mark(s.Vote == Rules.Standard)}\n[2]  Street Brawl{Mark(s.Vote == Rules.StreetBrawl)}"
+                : Tl(lang, "vote.board_rules_set", RulesName(_rules)) + "\n \n" + Tl(lang, "vote.board_format") + "\n \n"
+                    + string.Join("\n", formats.Select((f, n) => $"[{n + 3}]  {FormatName(f, lang)}{Mark(s.FormatVote == f)}"));
             SetBillboard(s, text);
             return;
         }
@@ -261,7 +256,7 @@ public sealed partial class DraftPlugin
 
     UINode VoteLayout(Seat s)
     {
-        bool ru = s.Ru;
+        string lang = LangOf(s.Slot);
         var humans = _seats.Values.Where(x => !x.Bot).ToList();
         int voted = _voteStep == 1 ? humans.Count(x => x.Vote != Rules.None) : humans.Count(x => x.FormatVote != Format.None);
 
@@ -287,10 +282,10 @@ public sealed partial class DraftPlugin
 
         bool rulesLive = _voteStep == 1, rulesVoted = _rulesDecided && _voteStd + _voteBrawl > 0;
         UINode? rules = rulesLive || rulesVoted
-            ? Card("ad_rules", ru ? "ПРАВИЛА" : "RULES", true, Tiles("ad_rules_row",
-                Tile("ad_std", 1, "Standard", ru ? "обычный матч" : "the full match", "vote", "standard",
+            ? Card("ad_rules", Tl(lang, "vote.rules"), true, Tiles("ad_rules_row",
+                Tile("ad_std", 1, "Standard", Tl(lang, "vote.standard_hint"), "vote", "standard",
                     rulesLive ? s.Vote == Rules.Standard : _rules == Rules.Standard, rulesLive, humans.Where(x => x.Vote == Rules.Standard)),
-                Tile("ad_brawl", 2, "Street Brawl", ru ? "короткие раунды" : "short rounds", "vote", "brawl",
+                Tile("ad_brawl", 2, "Street Brawl", Tl(lang, "vote.brawl_hint"), "vote", "brawl",
                     rulesLive ? s.Vote == Rules.StreetBrawl : _rules == Rules.StreetBrawl, rulesLive, humans.Where(x => x.Vote == Rules.StreetBrawl))),
                 ("horizontal-align", "center"), ("height", $"{CardHeight}px"))
             : null;
@@ -300,8 +295,8 @@ public sealed partial class DraftPlugin
         else
         {
             Format[] formats = [Format.Draft, Format.Chaos, Format.Shuffle];
-            var format = Card("ad_formats", ru ? "ФОРМАТ" : "FORMAT", false, Tiles("ad_formats_row", formats.Select((f, n) =>
-                Tile($"ad_format{n}", n + 3, FormatName(f, ru), FormatHint(f, ru), "format", f.ToString().ToLowerInvariant(), s.FormatVote == f, true, humans.Where(x => x.FormatVote == f))).ToArray()),
+            var format = Card("ad_formats", Tl(lang, "vote.format"), false, Tiles("ad_formats_row", formats.Select((f, n) =>
+                Tile($"ad_format{n}", n + 3, FormatName(f, lang), FormatHint(f, lang), "format", f.ToString().ToLowerInvariant(), s.FormatVote == f, true, humans.Where(x => x.FormatVote == f))).ToArray()),
                 ("horizontal-align", "center"), ("height", $"{CardHeight}px"), ("margin-top", rules != null ? $"{CardPeek}px" : "0px"));
             // A plain panel lays its children on top of one another: the rules card first, the format card over it.
             var stack = UI.Container("ad_stack").WithStyles(("horizontal-align", "center"), ("margin", "16px 16px 8px 16px"));
@@ -312,16 +307,15 @@ public sealed partial class DraftPlugin
         }
 
         bool twoSteps = _voteStep == 1 ? _forcedFormat == Format.None : rulesVoted;
-        string stage = (ru ? "ГОЛОСОВАНИЕ" : "VOTE") + (twoSteps ? (ru ? $" - ШАГ {_voteStep} ИЗ 2" : $" - STEP {_voteStep} OF 2") : "");
+        string stage = twoSteps ? Tl(lang, "vote.stage_step", _voteStep) : Tl(lang, "vote.stage");
         UINode[] beside =
         [
             Caps("ad_stage", stage),
-            Caps("ad_count", ru ? $"-   ПРОГОЛОСОВАЛО {voted}/{humans.Count}" : $"-   {voted}/{humans.Count} VOTED"),
+            Caps("ad_count", Tl(lang, "vote.count", voted, humans.Count)),
             Caps("ad_timer", VoteClock(), VoteChosen),
         ];
         var sheet = Sheet("ad_window", "ABILITY BRAWL", beside, body,
-            ru ? "Нажми на плитку или напиши её цифру в чат. При равенстве решает голос лидера лобби."
-               : "Click a tile or type its digit in chat. A tie goes to the lobby leader's vote.",
+            Tl(lang, "vote.footer"),
             ("horizontal-align", "center"), ("vertical-align", "center"), ("min-width", "720px"));
         return UI.Container("ad_root").WithStyles(("width", "100%"), ("height", "100%"), ("background-color", "#00000088")).Add(sheet);
     }
