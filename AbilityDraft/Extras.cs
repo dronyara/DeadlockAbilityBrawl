@@ -38,8 +38,8 @@ public sealed partial class DraftPlugin
     [Command("preset", Description = "Lobby leader: start a match with a preset from the config: /preset <name> (no name lists them)")]
     public void CmdPreset(CCitadelPlayerController? caller = null, string name = "")
     {
-        if (caller != null && caller.Slot != Host()) throw new CommandException("Only the lobby leader can start a match.");
-        if (_phase != Phase.Lobby) throw new CommandException($"A match is already being set up ({_phase}).");
+        if (caller != null && caller.Slot != Host()) throw Fail(caller, "error.leader_only");
+        if (_phase != Phase.Lobby) throw Fail(caller, "error.busy", _phase);
         LoadConfig();
         var match = _config.Presets.Keys.FirstOrDefault(k => k.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
         if (match == null)
@@ -63,7 +63,7 @@ public sealed partial class DraftPlugin
         _forcedFormat = format;
         if (format == Format.Chaos) StartChaos();       // both read the config again, with the preset applied
         else StartDraft();
-        Chat.PrintToChatAll(L($"[Draft] Пресет: {name}.", $"[Draft] Preset: {name}."));
+        ChatAll("match.preset", name);
         // Nothing left to vote on: the vote that was just opened ends at once.
         if (_forcedRules != Rules.None && _forcedFormat != Format.None) _phaseEnd = Now;
     }
@@ -103,7 +103,7 @@ public sealed partial class DraftPlugin
     [Command("stats", Description = "The most picked abilities and how often their holders won")]
     public void CmdStats(CCitadelPlayerController caller)
     {
-        if (!File.Exists(StatsPath)) throw new CommandException("No matches recorded yet.");
+        if (!File.Exists(StatsPath)) throw Fail(caller, "error.no_stats");
         var seen = new Dictionary<string, (int Games, int Wins)>();
         int matches = 0;
         foreach (var line in File.ReadLines(StatsPath))
@@ -119,11 +119,11 @@ public sealed partial class DraftPlugin
                     seen[ability] = (s.Games + 1, s.Wins + (p.Won ? 1 : 0));
                 }
         }
-        bool ru = _seats.TryGetValue(caller.Slot, out var seat) ? seat.Ru : _ru;
+        string lang = LangOf(caller.Slot);
         if (WriteStatsPage() != null && caller.Slot == Host())
-            Chat.PrintToChat(caller, ru ? "[Draft] Полная таблица: AbilityDraft.stats.html рядом с плагином на сервере." : "[Draft] The full table: AbilityDraft.stats.html next to the plugin on the server.");
-        Chat.PrintToChat(caller, ru ? $"[Draft] Записано матчей: {matches}. Чаще всего:" : $"[Draft] Matches recorded: {matches}. Most held:");
+            Chat.PrintToChat(caller, Tl(lang, "stats.page"));
+        Chat.PrintToChat(caller, Tl(lang, "stats.header", matches));
         foreach (var (ability, s) in seen.OrderByDescending(s => s.Value.Games).ThenByDescending(s => s.Value.Wins).Take(5))
-            Chat.PrintToChat(caller, $"  {AbilityPool.Find(ability)?.Title(ru) ?? ability}: {s.Games} ({100 * s.Wins / s.Games}% {(ru ? "побед" : "won")})");
+            Chat.PrintToChat(caller, Tl(lang, "stats.line", AbilityPool.Find(ability)?.Title(lang) ?? ability, s.Games, 100 * s.Wins / s.Games));
     }
 }

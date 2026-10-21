@@ -28,7 +28,6 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     {
         public int Slot;
         public bool Bot;
-        public bool Ru = _ru;
         public readonly string?[] Kit = new string?[Slots];
         public int Round;                                   // which ability slot is being drafted (0-3)
         public readonly AbilityDef?[] Offer = new AbilityDef?[Offers];
@@ -179,12 +178,9 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         ComeBack(c);
         if (LobbyIsFull(c)) return;
         if (_phase == Phase.Lobby)
-            Chat.PrintToChat(c, args.Slot == Host()
-                ? L("[Draft] Ты лидер лобби. Когда все выберут героев, напиши /draft (или /chaos — случайные герои и способности).",
-                    "[Draft] You are the lobby leader: type /draft when everyone has a hero (or /chaos for random heroes and abilities).")
-                : L("[Draft] Выбери героя и жди, пока лидер лобби начнёт драфт.", "[Draft] Pick a hero and wait for the lobby leader to start the draft."));
+            Chat.PrintToChat(c, Tl(LangOf(c.Slot), args.Slot == Host() ? "lobby.leader_hint" : "lobby.player_hint"));
         if (_phase == Phase.Lobby && args.Slot == Host() && SteamConnectReady)
-            Chat.PrintToChat(c, L($"[Draft] Друзья заходят без проброса портов: connect {_steamConnect}", $"[Draft] Friends join with: connect {_steamConnect}"));
+            Chat.PrintToChat(c, Tl(LangOf(c.Slot), "lobby.friends_join", _steamConnect ?? ""));
     }
 
     public override void OnClientDisconnect(ClientDisconnectedEvent args)
@@ -196,7 +192,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         if (args.Slot == _hostSlot)
         {
             _hostSlot = Players.GetAll().FirstOrDefault(p => !p.IsBot && p.Slot != args.Slot)?.Slot ?? -1;
-            if (_hostSlot >= 0) Chat.PrintToChat(_hostSlot, L("[Draft] Теперь ты лидер лобби.", "[Draft] You are the lobby leader now."));
+            if (_hostSlot >= 0) Chat.PrintToChat(_hostSlot, Tl(LangOf(_hostSlot), "lobby.new_leader"));
         }
     }
 
@@ -248,8 +244,8 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     [Command("draft", Description = "Lobby leader: start the ability draft for everyone on the server")]
     public void CmdDraft(CCitadelPlayerController? caller = null)
     {
-        if (caller != null && caller.Slot != Host()) throw new CommandException("Only the lobby leader can start the draft.");
-        if (_phase != Phase.Lobby) throw new CommandException($"Draft is already running ({_phase}).");
+        if (caller != null && caller.Slot != Host()) throw Fail(caller, "error.leader_only");
+        if (_phase != Phase.Lobby) throw Fail(caller, "error.busy", _phase);
         StartDraft();
     }
 
@@ -262,12 +258,12 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         {
             if (c.GetHeroPawn() is not { } pawn || pawn.HeroID == 0)
             {
-                if (!c.IsBot) Chat.PrintToChat(c, L("[Draft] Нет героя — ты пропускаешь драфт.", "[Draft] No hero picked, you sit this draft out."));
+                if (!c.IsBot) Chat.PrintToChat(c, Tl(LangOf(c.Slot), "draft.no_hero"));
                 continue;
             }
             _seats[c.Slot] = new Seat { Slot = c.Slot, Bot = c.IsBot };
         }
-        if (_seats.Count == 0) throw new CommandException("Nobody has a hero yet.");
+        if (_seats.Count == 0) throw new CommandException(T("error.no_heroes"));
         _native.Clear();
         _taken.Clear();
         LoadConfig();
@@ -287,7 +283,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _phase = Phase.Drafting;
         _phaseEnd = DraftDeadline();
         _nextTimerText = 0;
-        Announce("ABILITY DRAFT", L("Выбери 4 способности", "Pick 4 abilities"));
+        Announce(lang => ("ABILITY DRAFT", Tl(lang, "announce.draft")));
         foreach (var s in _seats.Values) ShowOffer(s);
     }
 
@@ -297,7 +293,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _phase = Phase.Starting;
         _phaseEnd = Now + seconds;
         if (_kits.Count > 0) ShowKits(seconds);
-        Announce(RulesName(_rules).ToUpperInvariant(), L($"Матч начнётся через {seconds:0} с", $"Match starts in {seconds:0} s"));
+        Announce(lang => (RulesName(_rules).ToUpperInvariant(), Tl(lang, "announce.match_in", seconds.ToString("0"))));
     }
 
     void DealRound(Seat s)
@@ -368,7 +364,8 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         if (pawn != null) ApplyKit(pawn, kit);
         if (c != null && !s.Bot)
         {
-            Chat.PrintToChat(c, "[Draft] " + (s.Ru ? "Твой набор: " : "Your kit: ") + string.Join(", ", kit.Select(k => AbilityPool.Find(k)?.Title(s.Ru) ?? k)));
+            string lang = LangOf(s.Slot);
+            Chat.PrintToChat(c, Tl(lang, "draft.your_kit", string.Join(", ", kit.Select(k => AbilityPool.Find(k)?.Title(lang) ?? k))));
             ShowWaiting(s);
         }
     }
@@ -409,10 +406,10 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     [Command("draftcancel", Description = "Lobby leader: cancel the running draft and go back to the lobby")]
     public void CmdCancel(CCitadelPlayerController? caller = null)
     {
-        if (caller != null && caller.Slot != Host()) throw new CommandException("Only the lobby leader can cancel the draft.");
-        if (_phase is not (Phase.Drafting or Phase.Voting)) throw new CommandException("No draft is running.");
+        if (caller != null && caller.Slot != Host()) throw Fail(caller, "error.leader_only");
+        if (_phase is not (Phase.Drafting or Phase.Voting)) throw Fail(caller, "error.no_draft");
         CancelDraft("lobby leader");
-        Chat.PrintToChatAll(L("[Draft] Драфт отменён.", "[Draft] Draft cancelled."));
+        ChatAll("draft.cancelled");
     }
 
     // ---- applying a kit --------------------------------------------------------------------------------------
@@ -505,7 +502,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _rulesDecided = false;
         _phaseEnd = Now + VoteSeconds;
         Log($"VOTE START (step {_voteStep})");
-        Announce(L("ГОЛОСОВАНИЕ", "VOTE"), _voteStep == 1 ? "1 — Standard   2 — Street Brawl" : L("Формат: 3, 4, 5", "Format: 3, 4, 5"));
+        Announce(lang => (Tl(lang, "announce.vote_title"), _voteStep == 1 ? "1 — Standard   2 — Street Brawl" : Tl(lang, "announce.vote_format")));
         foreach (var s in _seats.Values)
         {
             s.Vote = Rules.None;
@@ -541,8 +538,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         if (_rules == Rules.StreetBrawl && _seats.Count > _config.MaxPlayersStreetBrawl)
         {
             _rules = Rules.Standard;
-            Chat.PrintToChatAll(L($"[Draft] Для Street Brawl слишком много игроков ({_seats.Count}, максимум {_config.MaxPlayersStreetBrawl}) — играем Standard.",
-                $"[Draft] Too many players for Street Brawl ({_seats.Count}, at most {_config.MaxPlayersStreetBrawl}) - playing Standard."));
+            ChatAll("vote.too_many", _seats.Count, _config.MaxPlayersStreetBrawl);
         }
         Log($"VOTE rules: standard={_voteStd} brawl={_voteBrawl} -> {_rules}");
     }
@@ -564,7 +560,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
             {
                 _voteStep = 2;
                 _phaseEnd = Now + (humans.Count == 0 ? 1f : VoteSeconds);
-                Chat.PrintToChatAll(L($"[Draft] Правила: {RulesName(_rules)} ({_voteStd}:{_voteBrawl}). Теперь формат.", $"[Draft] Rules: {RulesName(_rules)} ({_voteStd}:{_voteBrawl}). Now the format."));
+                ChatAll("vote.rules_now_format", RulesName(_rules), _voteStd, _voteBrawl);
                 foreach (var s in _seats.Values) s.VoteExplained = false;
                 _formatSlidesIn = true;
                 RefreshVote();
@@ -579,8 +575,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _forcedFormat = Format.None;
         Log($"VOTE RESULT {_rules}, format {_format}");
 
-        Chat.PrintToChatAll(L($"[Draft] Правила: {RulesName(_rules)}. Формат: {FormatName(_format, true)} — {FormatHint(_format, true)}.",
-            $"[Draft] Rules: {RulesName(_rules)}. Format: {FormatName(_format, false)} - {FormatHint(_format, false)}."));
+        ChatAll(lang => Tl(lang, "vote.result", RulesName(_rules), FormatName(_format, lang), FormatHint(_format, lang)));
         float countdown = StartDelaySeconds;
         if (_format == Format.Chaos && _kits.Count == 0)
         {
@@ -589,7 +584,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
             catch (CommandException ex)
             {
                 Log($"chaos is not possible ({ex.Message}): falling back to the draft");
-                Chat.PrintToChatAll(L("[Draft] Для Хаоса не хватает героев или способностей — будет драфт.", "[Draft] Not enough heroes or abilities for Chaos - drafting instead."));
+                ChatAll("vote.no_chaos");
                 _format = Format.Draft;
             }
         }
@@ -605,12 +600,12 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     [Command("vote", Description = "Vote for the rules: /vote standard | /vote brawl")]
     public void CmdVote(CCitadelPlayerController caller, string rules)
     {
-        if (_phase != Phase.Voting) throw new CommandException("There is no vote right now.");
+        if (_phase != Phase.Voting) throw Fail(caller, "error.no_vote");
         var r = rules.ToLowerInvariant() switch
         {
             "1" or "s" or "std" or "standard" or "стандарт" => Rules.Standard,
             "2" or "b" or "sb" or "brawl" or "street" or "streetbrawl" => Rules.StreetBrawl,
-            _ => throw new CommandException("Use /vote standard or /vote brawl."),
+            _ => throw Fail(caller, "error.vote_usage"),
         };
         CastVote(caller.Slot, r);
     }
@@ -641,7 +636,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
     [Command("pick", Description = "Draft: take offer 1-3")]
     public void CmdPick(CCitadelPlayerController caller, int offer)
     {
-        if (!_seats.TryGetValue(caller.Slot, out var s) || !Pick(s, offer - 1)) throw new CommandException("Nothing to pick.");
+        if (!_seats.TryGetValue(caller.Slot, out var s) || !Pick(s, offer - 1)) throw Fail(caller, "error.nothing_to_pick");
     }
 
     [Command("reroll", "rr", Description = "Draft: new cards, the same as the Reroll button (text menu: /reroll 1-3 replaces one offer)")]
@@ -650,24 +645,34 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         // On the stock draft screen: what its Reroll button does, for when the button cannot be reached.
         if (_native.TryGetValue(caller.Slot, out var ns) && ns.Round < Slots && ns.Offer[0] != null && caller.GetHeroPawn() is { } pawn)
         {
-            if (pawn.GetCurrency(ECurrencyType.EItemDraftRerolls) <= 0) throw new CommandException(ns.Ru ? "Прокрутки на этот выбор закончились." : "No rerolls left for this pick.");
+            if (pawn.GetCurrency(ECurrencyType.EItemDraftRerolls) <= 0) throw new CommandException(Tl(LangOf(ns.Slot), "draft.no_rerolls"));
             Log($"native slot {ns.Slot} round {ns.Round + 1}: /reroll");
             RerollNow(ns, pawn);
             return;
         }
-        if (!_seats.TryGetValue(caller.Slot, out var s) || !Reroll(s, offer - 1)) throw new CommandException("No rerolls left for that offer.");
-    }
-
-    [Command("lang", Description = "Draft text language: /lang ru | /lang en")]
-    public void CmdLang(CCitadelPlayerController caller, string lang)
-    {
-        if (!_seats.TryGetValue(caller.Slot, out var s)) throw new CommandException("You are not in the draft.");
-        s.Ru = lang.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
-        if (_phase == Phase.Drafting && !s.Done) ShowOffer(s);
+        if (!_seats.TryGetValue(caller.Slot, out var s) || !Reroll(s, offer - 1)) throw Fail(caller, "draft.no_rerolls");
     }
 
     static void Announce(string title, string text)
     {
         foreach (var c in Players.GetAll().Where(c => !c.IsBot)) c.HudAnnounce(title, text);
     }
+
+    /// <summary>A HUD announcement, worded for each player in their language.</summary>
+    void Announce(Func<string, (string Title, string Text)> say)
+    {
+        foreach (var c in Players.GetAll().Where(c => !c.IsBot))
+        {
+            var (title, text) = say(LangOf(c.Slot));
+            c.HudAnnounce(title, text);
+        }
+    }
+
+    /// <summary>A chat line to everyone, each in their language.</summary>
+    void ChatAll(Func<string, string> say)
+    {
+        foreach (var c in Players.GetAll().Where(c => !c.IsBot)) Chat.PrintToChat(c, say(LangOf(c.Slot)));
+    }
+
+    void ChatAll(string key, params object[] args) => ChatAll(lang => Tl(lang, key, args));
 }

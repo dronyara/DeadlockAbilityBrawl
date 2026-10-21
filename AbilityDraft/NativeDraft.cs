@@ -33,7 +33,7 @@ public sealed partial class DraftPlugin
     sealed class NativeSeat
     {
         public int Slot;
-        public bool Bot, Ru = _ru;
+        public bool Bot;
         public bool Click;                                  // deals twin items instead of bare abilities
         public int Round;
         public bool RoundOpen;                              // rerolls already granted for the current round
@@ -72,7 +72,7 @@ public sealed partial class DraftPlugin
         foreach (var s in _seats.Values)
             _native[s.Slot] = new NativeSeat
             {
-                Slot = s.Slot, Bot = s.Bot && !_testNoBot.Contains(s.Slot), Ru = s.Ru,
+                Slot = s.Slot, Bot = s.Bot && !_testNoBot.Contains(s.Slot),
                 Click = !s.Bot && Players.FromSlot(s.Slot) is { } c && _clickers.Contains(c.PlayerSteamId),
             };
         Log($"NATIVE DRAFT armed for slots {string.Join(",", _native.Keys)} (rounds offsets {RoundsLeftOffset}/{RoundsTotalOffset})");
@@ -163,7 +163,7 @@ public sealed partial class DraftPlugin
             Server.ChangeLevel(Server.MapName);
             return;
         }
-        Announce("STANDARD", L("Карта перезагружается, набор сохранён", "Reloading the map, your kit is kept"));
+        Announce(lang => ("STANDARD", Tl(lang, "announce.reloading")));
         Server.ExecuteCommand($"{BrawlCvar} 0");
         Server.ExecuteCommand($"{ActiveLaneCvar} 0");
         _phase = Phase.Restoring;
@@ -226,7 +226,7 @@ public sealed partial class DraftPlugin
         _phaseEnd = Now + _config.PregameSeconds;
         GameRules.SetGameStateEndTime(_phaseEnd);
         ShowKits(_config.PregameSeconds);
-        Announce("STANDARD", L($"Матч начнётся через {_config.PregameSeconds} с", $"Match starts in {_config.PregameSeconds} s"));
+        Announce(lang => ("STANDARD", Tl(lang, "announce.match_in", _config.PregameSeconds)));
     }
 
     void StartRestoredMatch()
@@ -236,7 +236,7 @@ public sealed partial class DraftPlugin
         SetSpawnWalls(false);
         GameRules.ChangeGameState(EGameState.GameInProgress);
         GameRules.SetGameStartTime(Now);
-        Announce("STANDARD", L("Матч начался", "The match has started"));
+        Announce(lang => ("STANDARD", Tl(lang, "announce.match_started")));
         Timer.Once(1.Seconds(), ApplyAllKits);
     }
 
@@ -252,20 +252,9 @@ public sealed partial class DraftPlugin
                 ns.SavedRoundsTotal = Marshal.ReadInt32(state, RoundsTotalOffset);
                 if (!ns.Bot && Players.FromSlot(ns.Slot) is { } c)
                 {
-                    if (ns.Click)
-                    {
-                        c.HudAnnounce(ns.Ru ? "ВЫБОР СПОСОБНОСТЕЙ" : "ABILITY DRAFT", ns.Ru ? "Кликни по карточке или напиши в чат 1, 2 или 3" : "Click a card or type 1, 2 or 3 in chat");
-                        Chat.PrintToChat(c, ns.Ru
-                            ? "[Draft] Выбор способностей: кликни по карточке или напиши в чат 1, 2 или 3. Карточки пустые? Нет аддона — напиши /vpk."
-                            : "[Draft] Ability draft: click a card or type 1, 2 or 3 in chat. Blank cards? The addon is missing - type /vpk.");
-                    }
-                    else
-                    {
-                        c.HudAnnounce(ns.Ru ? "ВЫБОР СПОСОБНОСТЕЙ" : "ABILITY DRAFT", ns.Ru ? "Напиши в чат 1, 2 или 3 — клик по карточке не работает" : "Type 1, 2 or 3 in chat - clicking a card does nothing");
-                        Chat.PrintToChat(c, ns.Ru
-                            ? "[Draft] Выбор способностей: напиши в чат 1, 2 или 3 (слева, сверху, справа). «Прокрутить» меняет все три. Клик работает только с аддоном (/vpk)."
-                            : "[Draft] Ability draft: type 1, 2 or 3 in chat (left, top, right). The Reroll button deals new cards. Clicking needs the addon (/vpk).");
-                    }
+                    string lang = LangOf(ns.Slot), how = ns.Click ? "draft.screen_click" : "draft.screen_type";
+                    c.HudAnnounce(Tl(lang, "draft.screen_title"), Tl(lang, how));
+                    Chat.PrintToChat(c, Tl(lang, how + "_chat"));
                 }
             }
             pawn.SetCurrency(ECurrencyType.EItemDraftRerolls, RerollsPerPick);
@@ -308,7 +297,10 @@ public sealed partial class DraftPlugin
         {
             // Somebody got there first: no pick, new cards, and the reroll is on the house.
             if (!ns.Bot && Players.FromSlot(ns.Slot) is { } late)
-                Chat.PrintToChat(late, ns.Ru ? $"[Draft] «{pick.Ru}» уже забрали — вот новые карточки, прокрутка бесплатная." : $"[Draft] {pick.En} is already taken - here are new cards, this reroll is free.");
+            {
+                string lang = LangOf(ns.Slot);
+                Chat.PrintToChat(late, Tl(lang, "draft.taken_free_reroll", pick.Title(lang)));
+            }
             Log($"native slot {ns.Slot} round {ns.Round + 1}: {pick.Name} is already taken, free reroll");
             FreeReroll(ns, pawn);
             return;
@@ -335,8 +327,11 @@ public sealed partial class DraftPlugin
             Marshal.WriteInt32(state, RoundsTotalOffset, ns.SavedRoundsTotal);
             Marshal.WriteInt32(state, RoundsLeftOffset, ns.SavedRoundsLeft);
             if (!ns.Bot && Players.FromSlot(ns.Slot) is { } c)
-                Chat.PrintToChat(c, "[Draft] " + (ns.Ru ? "Твой набор: " : "Your kit: ") + string.Join(", ", ns.Kit.Select(k => AbilityPool.Find(k!)?.Title(ns.Ru) ?? k))
-                    + (!_nativeThenStandard ? "" : ns.Ru ? ". Ждём остальных игроков." : ". Waiting for the other players."));
+            {
+                string lang = LangOf(ns.Slot);
+                Chat.PrintToChat(c, Tl(lang, _nativeThenStandard ? "draft.your_kit_waiting" : "draft.your_kit",
+                    string.Join(", ", ns.Kit.Select(k => AbilityPool.Find(k!)?.Title(lang) ?? k))));
+            }
             if (!_nativeThenStandard)
             {
                 // Street Brawl hands out unlocks through the TAB menu, which still lists the hero's own abilities
@@ -453,7 +448,10 @@ public sealed partial class DraftPlugin
             if (other == picker || other.Round >= Slots || !other.Offer.Any(a => a?.Name == taken.Name)) continue;
             if (Players.FromSlot(other.Slot)?.GetHeroPawn() is not { } pawn) continue;
             if (!other.Bot && Players.FromSlot(other.Slot) is { } c)
-                Chat.PrintToChat(c, other.Ru ? $"[Draft] «{taken.Ru}» только что забрали — карточки заменены бесплатно." : $"[Draft] {taken.En} was just taken - your cards were replaced for free.");
+            {
+                string lang = LangOf(other.Slot);
+                Chat.PrintToChat(c, Tl(lang, "draft.taken_replaced", taken.Title(lang)));
+            }
             Log($"native slot {other.Slot}: {taken.Name} was taken by slot {picker.Slot}, free reroll");
             FreeReroll(other, pawn);
         }
@@ -520,10 +518,7 @@ public sealed partial class DraftPlugin
     {
         bool on = mode.Length == 0 ? !_clickers.Contains(caller.PlayerSteamId) : mode is not ("off" or "0");
         SetClick(caller, on);
-        bool ru = _seats.TryGetValue(caller.Slot, out var s) ? s.Ru : _ru;
-        Chat.PrintToChat(caller, on
-            ? ru ? "[Draft] Клик по карточкам включён. Нужен аддон Ability Brawl; если карточки пустые — напиши /vpk ещё раз." : "[Draft] Clickable cards are on. They need the Ability Brawl addon; if the cards are blank, type /vpk again."
-            : ru ? "[Draft] Клик по карточкам выключен, выбирай цифрой в чате." : "[Draft] Clickable cards are off, pick with a digit in chat.");
+        Chat.PrintToChat(caller, Tl(LangOf(caller.Slot), on ? "draft.vpk_on" : "draft.vpk_off"));
     }
 
     /// <summary>Ability keys 1-3 on the stock draft screen. Returns true when the input belonged to the native draft.</summary>

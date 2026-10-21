@@ -8,14 +8,14 @@ public sealed partial class DraftPlugin
     [Command("hero", Description = "Lobby: pick a hero by name, e.g. /hero haze or /hero \"grey talon\"")]
     public void CmdHero(CCitadelPlayerController caller, string name)
     {
-        if (_phase != Phase.Lobby) throw new CommandException("Heroes are locked once the draft has started.");
+        if (_phase != Phase.Lobby) throw Fail(caller, "error.heroes_locked");
         var key = name.Replace(" ", "").Replace("&", "");
         var hero = PlayableHeroes()
             .Select(h => (Hero: h, Shown: h.ToDisplayName().Replace(" ", "").Replace("&", "")))
             .Where(h => h.Shown.StartsWith(key, StringComparison.OrdinalIgnoreCase) || h.Hero.ToString().StartsWith(key, StringComparison.OrdinalIgnoreCase))
             .Select(h => (Heroes?)h.Hero)
-            .FirstOrDefault() ?? throw new CommandException($"No playable hero matches '{name}'.");
-        if (HeroTaken(hero.ToHeroName(), caller.Slot)) throw new CommandException($"{hero.ToDisplayName()} is already taken.");
+            .FirstOrDefault() ?? throw Fail(caller, "error.no_such_hero", name);
+        if (HeroTaken(hero.ToHeroName(), caller.Slot)) throw Fail(caller, "error.hero_taken", hero.ToDisplayName());
         if (caller.TeamNum is not (2 or 3)) caller.ChangeTeam(SmallerTeam());
         caller.SelectHero(hero);
         Chat.PrintToChatAll($"[Draft] {caller.PlayerName}: {hero.ToDisplayName()}");
@@ -24,15 +24,15 @@ public sealed partial class DraftPlugin
     [Command("team", Description = "Lobby: /team amber | /team sapphire")]
     public void CmdTeam(CCitadelPlayerController caller, string team)
     {
-        if (_phase != Phase.Lobby) throw new CommandException("Teams are locked once the draft has started.");
+        if (_phase != Phase.Lobby) throw Fail(caller, "error.teams_locked");
         int t = team.ToLowerInvariant() switch
         {
             "2" or "a" or "amber" => 2,
             "3" or "s" or "sapphire" => 3,
-            _ => throw new CommandException("Use /team amber or /team sapphire."),
+            _ => throw Fail(caller, "error.team_usage"),
         };
         caller.ChangeTeam(t);
-        Chat.PrintToChatAll($"[Draft] {caller.PlayerName} -> {(t == 2 ? "Amber" : "Sapphire")}");
+        ChatAll(lang => $"[Draft] {caller.PlayerName} -> {Tl(lang, t == 2 ? "lobby.team_amber" : "lobby.team_sapphire")}");
     }
 
     static int SmallerTeam()
@@ -54,7 +54,7 @@ public sealed partial class DraftPlugin
         }
         if (_phase == Phase.Lobby && args.Command == "selecthero" && args.Args.Length > 1 && args.Controller is { } picking && HeroTaken(args.Args[^1], picking.Slot))
         {
-            Chat.PrintToChat(picking, L("[Draft] Этот герой уже занят — выбери другого.", "[Draft] That hero is already taken - pick another one."));
+            Chat.PrintToChat(picking, Tl(LangOf(picking.Slot), "lobby.hero_taken"));
             return HookResult.Stop;
         }
         return _phase is Phase.Drafting or Phase.Voting or Phase.Starting or Phase.Restoring or Phase.Pregame && args.Command is "selecthero" or "changeteam" or "jointeam"

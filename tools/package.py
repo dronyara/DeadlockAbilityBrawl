@@ -38,7 +38,7 @@ A server-side Deadworks plugin: players draft four abilities from other heroes o
 draft screen, then play Standard or Street Brawl. Players need to install nothing; an optional client
 addon (clientside/pak01_dir.vpk in the repository) adds mouse picks and a working TAB upgrade view.
 
-Built and tested against Deadlock build {build or "?"} with Deadworks v0.6.1.
+Built and tested against Deadlock build {build or "?"} with Deadworks v0.6.2.
 
 INSTALL (the server owner only)
 1. Deadlock installed from Steam (or a separate copy through SteamCMD, app 1422450).
@@ -76,7 +76,7 @@ game\\bin\\win64\\managed\\plugins\\AbilityDraft.config.json is created on the f
 start. The file explains itself; in short:
   "Blacklist": ["Hotel Guest", "ability_frank_revive"]   abilities that are never offered (internal, English or
                                                          Russian name from AbilityDraft.abilities.txt)
-  "Language": "en"                 "en" or "ru" - the language of the plugin's messages
+  "Language": "en"                 the server's language: a file in AbilityDraft.lang (en, ru, ...); /lang per player
   "MaxPlayersStandard": 12         how many players the lobby takes
   "MaxPlayersStreetBrawl": 8       with more players than this, a vote for Street Brawl plays Standard
   "UniqueHeroes": true             no two players on the same hero
@@ -90,6 +90,11 @@ start. The file explains itself; in short:
   "Trace": false                   true - also log every client command and key press (a large log)
   "Stats": true                    one line per finished match in AbilityDraft.stats.jsonl; /stats shows a summary
   "Presets": {{}}                  named settings for /preset <name> (the config file shows an example)
+
+LANGUAGES
+Every text is in game\\bin\\win64\\managed\\plugins\\AbilityDraft.lang\\<code>.json, written out on the first start
+(en, ru). Edit the texts there; to add a language copy en.json to a new name (de.json) and translate it. Keep {{0}},
+{{1}}, ... in the texts: the plugin puts numbers and names there. A text missing from a file is shown in English.
 
 CLIENT ADDON (optional, for each player who wants it)
 clientside/pak01_dir.vpk in the repository, with install notes next to it. It must match the game build and is

@@ -13,7 +13,7 @@ public sealed partial class DraftPlugin
         int humans = Players.GetAll().Count(p => !p.IsBot);
         if (cap <= 0 || humans <= cap) return false;
         Log($"lobby is full ({humans - 1}/{cap}): turning away {c.PlayerName}");
-        Chat.PrintToChat(c, L($"[Draft] Лобби заполнено ({cap} игроков).", $"[Draft] The lobby is full ({cap} players)."));
+        Chat.PrintToChat(c, Tl(LangOf(c.Slot), "lobby.full", cap));
         int slot = c.Slot;
         Timer.Once(2.Seconds(), () => { if (Players.FromSlot(slot) is { IsBot: false }) Server.Kick(slot); });
         return true;
@@ -54,8 +54,7 @@ public sealed partial class DraftPlugin
         _matchOverAt = Now + _config.SecondsAfterMatch;
         _holdResult = true;
         Log($"MATCH OVER ({state}): new lobby in {_config.SecondsAfterMatch} s");
-        Chat.PrintToChatAll(L($"[Draft] Матч окончен. Через {_config.SecondsAfterMatch} с лобби откроется заново, останется только лидер лобби.",
-            $"[Draft] The match is over. In {_config.SecondsAfterMatch} s the lobby reopens and only the lobby leader stays."));
+        ChatAll("match.over", _config.SecondsAfterMatch);
     }
 
     bool _modeReset;
@@ -93,8 +92,8 @@ public sealed partial class DraftPlugin
     [Command("chaos", Description = "Lobby leader: everyone gets a random hero and four random abilities, nobody picks anything")]
     public void CmdChaos(CCitadelPlayerController? caller = null)
     {
-        if (caller != null && caller.Slot != Host()) throw new CommandException("Only the lobby leader can start it.");
-        if (_phase != Phase.Lobby) throw new CommandException($"A draft is already running ({_phase}).");
+        if (caller != null && caller.Slot != Host()) throw Fail(caller, "error.leader_only");
+        if (_phase != Phase.Lobby) throw Fail(caller, "error.busy", _phase);
         StartChaos();
     }
 
@@ -103,7 +102,7 @@ public sealed partial class DraftPlugin
         LoadConfig();
         AssignChaos();
         _forcedFormat = Format.Chaos;
-        Announce("CHAOS", L("Случайные герои и способности", "Random heroes and abilities"));
+        Announce(lang => (Tl(lang, "announce.chaos_title"), Tl(lang, "announce.chaos")));
         StartVote();
     }
 
@@ -113,19 +112,17 @@ public sealed partial class DraftPlugin
     void AssignChaos()
     {
         var players = Players.GetAll().ToList();
-        if (players.Count == 0) throw new CommandException("Nobody is here.");
+        if (players.Count == 0) throw new CommandException(T("error.nobody"));
 
         var heroes = PlayableHeroes().ToList();
         var normals = Pool.Where(a => !a.Ult).ToList();
         var ults = Pool.Where(a => a.Ult).ToList();
         if (heroes.Count < players.Count || normals.Count < players.Count * (Slots - 1) || ults.Count < players.Count)
-            throw new CommandException($"Not enough for {players.Count} players: {heroes.Count} heroes, {normals.Count} abilities and {ults.Count} ultimates are available.");
+            throw new CommandException(T("error.chaos_short", players.Count, heroes.Count, normals.Count, ults.Count));
         Shuffle(heroes);
         Shuffle(normals);
         Shuffle(ults);
 
-        var russian = _seats.Values.Where(s => s.Ru).Select(s => s.Slot).ToHashSet();       // /lang choices made before the vote
-        bool hadSeats = _seats.Count > 0;
         // The seats are made anew below; a panel still up for an old one (the vote) would never be taken down.
         foreach (var old in _seats.Values) HidePanel(old);
         _seats.Clear();
@@ -142,7 +139,7 @@ public sealed partial class DraftPlugin
             var c = players[i];
             var kit = normals.Skip(i * (Slots - 1)).Take(Slots - 1).Append(ults[i]).ToArray();
             var names = kit.Select(a => a.Name).ToArray();
-            var seat = new Seat { Slot = c.Slot, Bot = c.IsBot, Round = Slots, Ru = hadSeats ? russian.Contains(c.Slot) : _ru };
+            var seat = new Seat { Slot = c.Slot, Bot = c.IsBot, Round = Slots };
             names.CopyTo(seat.Kit, 0);
             _seats[c.Slot] = seat;
             _kits[c.Slot] = names;
@@ -154,7 +151,7 @@ public sealed partial class DraftPlugin
             c.SelectHero(heroes[i]);
             _chaosHeroes[c.Slot] = (heroes[i], 0);
             if (!c.IsBot)
-                Chat.PrintToChat(c, "[Draft] " + heroes[i].ToDisplayName() + ": " + string.Join(", ", kit.Select(a => a.Title(seat.Ru))));
+                Chat.PrintToChat(c, "[Draft] " + heroes[i].ToDisplayName() + ": " + string.Join(", ", kit.Select(a => a.Title(LangOf(c.Slot)))));
             Log($"chaos slot {c.Slot} ({c.PlayerName}): {heroes[i]} [{string.Join(", ", names)}]");
         }
     }
