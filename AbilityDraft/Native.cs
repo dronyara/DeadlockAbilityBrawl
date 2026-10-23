@@ -20,12 +20,31 @@ static unsafe class Native
     public static bool Ready => _advance != null && _reroll != null;
     public static bool CanTrain => _train != null;
 
+    /// <summary>
+    /// The signatures come from AbilityDraft.signatures.json next to the plugin when it is there and matches the game
+    /// (a server owner drops in a new one after a patch), else from the copy built into the DLL - the one a host that
+    /// only takes the DLL, like the Deadworks launcher, gets.
+    /// </summary>
     public static string Load(string signatureFile)
+    {
+        var sources = new List<(string From, string Json)>();
+        if (File.Exists(signatureFile)) sources.Add((Path.GetFileName(signatureFile), File.ReadAllText(signatureFile)));
+        using (var builtIn = typeof(Native).Assembly.GetManifestResourceStream("AbilityDraft.signatures.json"))
+            if (builtIn != null) sources.Add(("the built-in signatures", new StreamReader(builtIn).ReadToEnd()));
+        if (sources.Count == 0) return $"{signatureFile} is missing - run tools/find_sigs.py";
+        var said = new List<string>();
+        foreach (var (from, json) in sources)
+        {
+            said.Add($"{from}: {Load(JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new())}");
+            if (Ready) break;
+        }
+        return string.Join("; ", said);
+    }
+
+    static string Load(Dictionary<string, string> sigs)
     {
         _advance = _reroll = null;
         _train = null;
-        if (!File.Exists(signatureFile)) return $"{signatureFile} is missing - run tools/find_sigs.py";
-        var sigs = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(signatureFile)) ?? new();
         ProcessModule? server = null;
         foreach (ProcessModule m in Process.GetCurrentProcess().Modules)
             if (m.ModuleName.Equals("server.dll", StringComparison.OrdinalIgnoreCase)) server = m;

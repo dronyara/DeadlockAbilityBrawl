@@ -72,6 +72,20 @@ id changes every time the server starts.
 Running the server and the game on one machine takes a lot of memory. It works on 8 GB, but a map load takes about a
 minute, and so does the reload into Standard.
 
+### Hosting with the Deadworks launcher
+The launcher's hosting runs a server from its own copy of the game, with its own plugin folder.
+1. Set up hosting in the launcher (it fetches the game files and Deadworks itself) and create a server.
+2. Plugins → **Add plugins** → choose the release zip (or `AbilityDraft.dll`), and turn the plugin on for the server.
+   The plugin carries the signatures of the build it was made for, so nothing else has to be copied.
+3. Settings: switch **Hibernate when empty** off. With the game on the same PC, add the ConVars
+   `net_limit_sv_message_process_time_ms_drop_burst` and `net_limit_sv_message_process_time_ms_drop_rate`, both
+   `60000` (Advanced).
+4. With the **Steam relay** network mode the launcher already lets friends join through Steam; the plugin sees it
+   and leaves it alone.
+
+`AbilityDraft.config.json` and the `AbilityDraft.lang` folder appear in the server's `game\bin\win64\managed\plugins`
+(Advanced → **Server folder**) after the first start.
+
 ### Building from source
 ```
 dotnet build AbilityDraft -c Release
@@ -79,7 +93,7 @@ pip install capstone
 python tools\find_sigs.py
 ```
 The build copies the plugin into `game/bin/win64/managed/plugins`; `find_sigs.py` writes the signature file next to
-it. If Steam is not in `C:\Program Files (x86)\Steam`, add `-p:DeadlockDir="<Deadlock folder>"` to the build and pass
+it and into `AbilityDraft/signatures.json`, which the next build puts inside the DLL. If Steam is not in `C:\Program Files (x86)\Steam`, add `-p:DeadlockDir="<Deadlock folder>"` to the build and pass
 the folder to the script. Start the server with `tools\host.ps1` (or `tools\host.ps1 -Lan`).
 
 ## Settings
@@ -208,6 +222,8 @@ Deadworks stops starting until its next release, and the plugin's own signatures
   v1.2.1). It has not been reproduced: on the author's server four players respawned dozens of times in an evening
   without it. If it happens to you, the client's crash dump from `game\bin\win64` and a try without the addon
   are what will tell where it comes from.
+- v1.5.1 is for build 6812 with Deadworks v0.6.2; the server was checked with bots, the addon finding itself
+  was not tried in a client yet.
 - v1.5 is for build 6807 with Deadworks v0.6.2 (older Deadworks versions do not start on this build); the server
   was checked with bots. Violet and Nurse Harrow (new in this version) were tried with bots only: their abilities
   on another hero, and picking them. v1.4 (build 6785) was also checked by loading the addon in a client.

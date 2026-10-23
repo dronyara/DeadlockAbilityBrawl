@@ -173,7 +173,7 @@ public static partial class AbilityPool
         new("hero_artist", "Violet", "Виолетта", 2, "ability_artist_rollingprojectile", "Flow State", "В потоке", false, "file://{images}/hud/abilities/artist/artist_brush.psd"),
         new("hero_artist", "Violet", "Виолетта", 3, "ability_artist_tether", "Still Life", "Портрет с натуры", false, "file://{images}/hud/abilities/artist/artist_portrait.psd"),
         new("hero_artist", "Violet", "Виолетта", 4, "ability_artist_bamboogrove", "Abstract Landscape", "Абстрактный пейзаж", true, "file://{images}/hud/abilities/artist/artist_landscape.psd"),
-        new("hero_nurse", "Nurse Harrow", "Сестра Хэрроу", 1, "ability_nurse_leech_therapy", "Leech Therapy", "Leech Therapy", false, "file://{images}/hud/abilities/nurse/leech.psd"),
+        new("hero_nurse", "Nurse Harrow", "Сестра Хэрроу", 1, "ability_nurse_leech_therapy", "Leech Therapy", "Гирудотерапия", false, "file://{images}/hud/abilities/nurse/leech.psd"),
         new("hero_nurse", "Nurse Harrow", "Сестра Хэрроу", 2, "ability_nurse_adrenaline_rush", "Wretched Vapors", "Wretched Vapors", false, "file://{images}/hud/abilities/nurse/nurse_vapors.psd"),
         new("hero_nurse", "Nurse Harrow", "Сестра Хэрроу", 3, "ability_nurse_healing_needles", "Healing Needles", "Healing Needles", false, "file://{images}/hud/abilities/nurse/needle.psd"),
         new("hero_nurse", "Nurse Harrow", "Сестра Хэрроу", 4, "ability_nurse_fear", "Lurking Terrors", "Lurking Terrors", true, "file://{images}/hud/abilities/nurse/medicine_bag.psd"),

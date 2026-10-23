@@ -14,15 +14,17 @@ Deadlock поверх старого. Если собираете плагин �
 
 ## 2. «signature not found» — функции родного экрана драфта
 Плагин вызывает две функции из `server.dll`: Reroll (раздать три новые карточки) и Advance (перейти к следующему
-выбору или закончить драфт). Он находит их по байтовым сигнатурам из файла
-`game/bin/win64/managed/plugins/AbilityDraft.signatures.json`.
+выбору или закончить драфт). Он находит их по байтовым сигнатурам: из файла
+`game/bin/win64/managed/plugins/AbilityDraft.signatures.json`, если он есть и подходит к игре, иначе из копии,
+зашитой в DLL (`AbilityDraft/signatures.json` в исходниках).
 
 Что делать:
 ```
 pip install capstone        # один раз
 python tools\find_sigs.py   # находит функции и перезаписывает AbilityDraft.signatures.json
 ```
-и перезапустить сервер. В логе должно появиться `native draft functions resolved: advance=… reroll=…`.
+и перезапустить сервер. Скрипт обновляет и `AbilityDraft/signatures.json`: перед релизом соберите плагин заново, чтобы
+новые сигнатуры получил и хостинг, который берёт только DLL (лаунчер Deadworks). В логе должно появиться `native draft functions resolved: advance=… reroll=…`.
 Пока это не починено, плагин всё равно работает: драфт идёт текстовым меню вместо родного экрана.
 
 Если скрипт пишет `no code reference…` или `no call found…`, Valve переписала обработчик команд.

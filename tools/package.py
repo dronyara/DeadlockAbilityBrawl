@@ -102,8 +102,8 @@ rebuilt after game patches that touch items or abilities.
 
 AFTER A GAME PATCH
 - Deadworks stops starting until its next release: update Deadworks.
-- If the server log says "signature not found", the bundled AbilityDraft.signatures.json no longer matches the
-  game. Regenerate it with tools/find_sigs.py from the repository (see PATCHING.md there). Until then the
+- If the server log says "signature not found", neither the bundled AbilityDraft.signatures.json nor the copy
+  inside the DLL matches the game. Regenerate it with tools/find_sigs.py from the repository (see PATCHING.md there). Until then the
   plugin falls back to a text menu instead of the draft screen.
 
 Source, journal and patch notes: https://github.com/dronyara/DeadlockAbilityBrawl
