@@ -20,6 +20,9 @@
   <ItemGroup>
     <!-- The shipped languages: written out to AbilityDraft.lang next to the plugin on the first start. -->
     <EmbeddedResource Include="Lang\*.json" />
+    <!-- The server.dll signatures of the build this DLL is made for (tools/find_sigs.py writes them here too). A file
+         AbilityDraft.signatures.json next to the plugin takes precedence while it matches the game. -->
+    <EmbeddedResource Include="signatures.json" LogicalName="AbilityDraft.signatures.json" />
   </ItemGroup>
   <Target Name="DeployToGame" AfterTargets="Build">
     <Copy SourceFiles="$(OutputPath)AbilityDraft.dll;$(OutputPath)AbilityDraft.pdb" DestinationFolder="$(ManagedDir)\plugins" SkipUnchangedFiles="false" Retries="0" ContinueOnError="WarnAndContinue" />

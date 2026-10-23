@@ -62,7 +62,7 @@ PLAY
   once it has run its course). /chaos instead of /draft skips the format vote.
 - The match starts and the draft screen opens with ability cards. Take a card by typing 1, 2 or 3 in chat
   (left, top, right). Four picks, the last one is the ultimate; three rerolls per pick with the Reroll button.
-  With the client addon, type /vpk before the draft and click the cards instead.
+  With the client addon the server switches clickable cards on by itself; /vpk off switches them off.
   No two players get the same ability.
 - Street Brawl: after the fourth ability the same screen goes on to the usual items; the kit starts unlocked.
   Standard: the map reloads once everyone is done, and every player gets their team, hero and kit back.
@@ -102,8 +102,8 @@ rebuilt after game patches that touch items or abilities.
 
 AFTER A GAME PATCH
 - Deadworks stops starting until its next release: update Deadworks.
-- If the server log says "signature not found", the bundled AbilityDraft.signatures.json no longer matches the
-  game. Regenerate it with tools/find_sigs.py from the repository (see PATCHING.md there). Until then the
+- If the server log says "signature not found", neither the bundled AbilityDraft.signatures.json nor the copy
+  inside the DLL matches the game. Regenerate it with tools/find_sigs.py from the repository (see PATCHING.md there). Until then the
   plugin falls back to a text menu instead of the draft screen.
 
 Source, journal and patch notes: https://github.com/dronyara/DeadlockAbilityBrawl

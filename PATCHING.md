@@ -14,15 +14,17 @@ Deadlock folder over the old one. If you build the plugin from source, rebuild i
 
 ## 2. "signature not found" — the functions behind the stock draft screen
 The plugin calls two functions in `server.dll`: Reroll (deal three new cards) and Advance (move to the next pick, or
-end the draft). It finds them by byte signatures stored in
-`game/bin/win64/managed/plugins/AbilityDraft.signatures.json`.
+end the draft). It finds them by byte signatures: from
+`game/bin/win64/managed/plugins/AbilityDraft.signatures.json` when that file is there and matches the game, otherwise
+from the copy built into the DLL (`AbilityDraft/signatures.json` in the source).
 
 Fix:
 ```
 pip install capstone        # once
 python tools\find_sigs.py   # finds the functions and rewrites AbilityDraft.signatures.json
 ```
-then restart the server. The log should say `native draft functions resolved: advance=… reroll=…`.
+then restart the server. The script also updates `AbilityDraft/signatures.json`: build the plugin again before a
+release, so a host that only takes the DLL (the Deadworks launcher) gets the new signatures too. The log should say `native draft functions resolved: advance=… reroll=…`.
 Until that works, the plugin still runs: it drafts with the text menu instead of the stock screen.
 
 If the script prints `no code reference…` or `no call found…`, Valve has rewritten the command handler.

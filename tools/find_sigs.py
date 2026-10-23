@@ -113,7 +113,9 @@ for key, rva in rvas.items():
     sigs[key] = signature(rva)
     print(f"{key}: server.dll+{rva:#x}\n    {sigs[key]}")
 
-out = os.path.join(game, "game", "bin", "win64", "managed", "plugins", "AbilityDraft.signatures.json")
-with open(out, "w", encoding="utf-8") as f:
-    json.dump(sigs, f, indent=2)
-print("written:", out)
+# Next to the plugin in the game, and into the source tree, where the next build puts them inside the DLL.
+for out in (os.path.join(game, "game", "bin", "win64", "managed", "plugins", "AbilityDraft.signatures.json"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "AbilityDraft", "signatures.json")):
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(sigs, f, indent=2)
+    print("written:", os.path.normpath(out))

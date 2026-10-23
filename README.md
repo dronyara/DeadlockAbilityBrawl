@@ -30,7 +30,7 @@ addon ([`clientside/`](clientside)) adds mouse picks on the draft screen and a w
 4. The match starts and the **stock Street Brawl draft screen opens with ability cards**. Four picks, the last one
    is the ultimate, with three rerolls per pick on the stock Reroll button.
    **Take a card by typing its number in chat: Enter → `1`, `2` or `3` → Enter (left, top, right).** The message is
-   not shown to anyone. With the client addon and `/vpk` a card can simply be clicked. `/reroll` in chat does
+   not shown to anyone. With the client addon a card can simply be clicked: the server finds the addon by itself. `/reroll` in chat does
    what the Reroll button does.
 5. Street Brawl: after the fourth ability the same screen goes on to the usual items, and the match continues as
    Street Brawl.
@@ -72,6 +72,20 @@ id changes every time the server starts.
 Running the server and the game on one machine takes a lot of memory. It works on 8 GB, but a map load takes about a
 minute, and so does the reload into Standard.
 
+### Hosting with the Deadworks launcher
+The launcher's hosting runs a server from its own copy of the game, with its own plugin folder.
+1. Set up hosting in the launcher (it fetches the game files and Deadworks itself) and create a server.
+2. Plugins → **Add plugins** → choose the release zip (or `AbilityDraft.dll`), and turn the plugin on for the server.
+   The plugin carries the signatures of the build it was made for, so nothing else has to be copied.
+3. Settings: switch **Hibernate when empty** off. With the game on the same PC, add the ConVars
+   `net_limit_sv_message_process_time_ms_drop_burst` and `net_limit_sv_message_process_time_ms_drop_rate`, both
+   `60000` (Advanced).
+4. With the **Steam relay** network mode the launcher already lets friends join through Steam; the plugin sees it
+   and leaves it alone.
+
+`AbilityDraft.config.json` and the `AbilityDraft.lang` folder appear in the server's `game\bin\win64\managed\plugins`
+(Advanced → **Server folder**) after the first start.
+
 ### Building from source
 ```
 dotnet build AbilityDraft -c Release
@@ -79,7 +93,7 @@ pip install capstone
 python tools\find_sigs.py
 ```
 The build copies the plugin into `game/bin/win64/managed/plugins`; `find_sigs.py` writes the signature file next to
-it. If Steam is not in `C:\Program Files (x86)\Steam`, add `-p:DeadlockDir="<Deadlock folder>"` to the build and pass
+it and into `AbilityDraft/signatures.json`, which the next build puts inside the DLL. If Steam is not in `C:\Program Files (x86)\Steam`, add `-p:DeadlockDir="<Deadlock folder>"` to the build and pass
 the folder to the script. Start the server with `tools\host.ps1` (or `tools\host.ps1 -Lan`).
 
 ## Settings
@@ -160,8 +174,9 @@ Every text the plugin shows (chat, panels, announcements, command errors) is in 
 [`clientside/pak01_dir.vpk`](clientside) is ready to install; [`clientside/README.md`](clientside/README.md) says
 how. Players with and without it play in the same lobby. It adds:
 
-- **Clickable draft cards with the ability's tooltip.** Type `/vpk` in chat before the draft. Every ability gets a
-  twin item (`ad_<ability>`) the stock screen can safely "buy"; the plugin answers the purchase with the ability.
+- **Clickable draft cards with the ability's tooltip.** The server notices the addon when the player joins and
+  switches the clicks on; `/vpk off` switches them off (an addon from v1.5 or older still needs `/vpk` typed in
+  chat before the draft). Every ability gets a twin item (`ad_<ability>`) the stock screen can safely "buy"; the plugin answers the purchase with the ability.
   The taken card grows and the other two fade, as in a normal Street Brawl draft.
 - **The TAB upgrade view.** A click on an ability trains it, and the upgrade pips show the drafted kit's real state.
   This part comes through the Deadworks UI bridge, which the VPK includes unchanged.
@@ -207,6 +222,8 @@ Deadworks stops starting until its next release, and the plugin's own signatures
   v1.2.1). It has not been reproduced: on the author's server four players respawned dozens of times in an evening
   without it. If it happens to you, the client's crash dump from `game\bin\win64` and a try without the addon
   are what will tell where it comes from.
+- v1.5.1 is for build 6819 with Deadworks v0.6.2; the server was checked with bots, the addon finding itself
+  was not tried in a client yet.
 - v1.5 is for build 6807 with Deadworks v0.6.2 (older Deadworks versions do not start on this build); the server
   was checked with bots. Violet and Nurse Harrow (new in this version) were tried with bots only: their abilities
   on another hero, and picking them. v1.4 (build 6785) was also checked by loading the addon in a client.

@@ -513,11 +513,36 @@ public sealed partial class DraftPlugin
         if (ns.Round < Slots && ns.Offer[0] != null && c.GetHeroPawn() is { } pawn) FreeReroll(ns, pawn);
     }
 
-    [Command("vpk", "click", Description = "Clickable draft cards (needs the client addon): /vpk, /vpk off")]
+    // ---- finding the addon -------------------------------------------------------------------------------------
+    // The addon's script is loaded for everyone with the Deadworks bridge (Training.cs) and answers "ad_hello". The
+    // bridge alone is not enough: the Deadworks launcher brings it too, without the twin items the cards need.
+    readonly HashSet<ulong> _addonSeen = new();     // players whose addon answered, for as long as they stay connected
+    readonly HashSet<ulong> _clickOff = new();      // players who switched the cards off with /vpk off
+
+    bool AddonHello(ClientConCommandEvent args)
+    {
+        if (args.Command != "ad_hello" || args.Controller is not { IsBot: false } c) return false;
+        if (_addonSeen.Add(c.PlayerSteamId)) Log($"addon found on slot {c.Slot} ({c.PlayerName})");
+        if (!_clickOff.Contains(c.PlayerSteamId) && !_clickers.Contains(c.PlayerSteamId))
+        {
+            SetClick(c, true);
+            Chat.PrintToChat(c, Tl(LangOf(c.Slot), "draft.vpk_found"));
+        }
+        return true;
+    }
+
+    /// <summary>A player who leaves takes the addon finding with them: whoever comes back is asked again.</summary>
+    void ForgetAddon(ulong steamId)
+    {
+        if (_addonSeen.Remove(steamId)) _clickers.Remove(steamId);
+    }
+
+    [Command("vpk", "click", Description = "Clickable draft cards (found by themselves with a current addon): /vpk, /vpk off")]
     public void CmdClick(CCitadelPlayerController caller, string mode = "")
     {
         bool on = mode.Length == 0 ? !_clickers.Contains(caller.PlayerSteamId) : mode is not ("off" or "0");
         SetClick(caller, on);
+        if (on) _clickOff.Remove(caller.PlayerSteamId); else _clickOff.Add(caller.PlayerSteamId);
         Chat.PrintToChat(caller, Tl(LangOf(caller.Slot), on ? "draft.vpk_on" : "draft.vpk_off"));
     }
 

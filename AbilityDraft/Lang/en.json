@@ -21,11 +21,12 @@
   "draft.taken_replaced": "[Draft] {0} was just taken - your cards were replaced for free.",
   "draft.screen_title": "ABILITY DRAFT",
   "draft.screen_click": "Click a card or type 1, 2 or 3 in chat",
-  "draft.screen_click_chat": "[Draft] Ability draft: click a card or type 1, 2 or 3 in chat. Blank cards? The addon is missing - type /vpk.",
+  "draft.screen_click_chat": "[Draft] Ability draft: click a card or type 1, 2 or 3 in chat. Blank cards? Type /vpk off.",
   "draft.screen_type": "Type 1, 2 or 3 in chat - clicking a card does nothing",
   "draft.screen_type_chat": "[Draft] Ability draft: type 1, 2 or 3 in chat (left, top, right). The Reroll button deals new cards. Clicking needs the addon (/vpk).",
   "draft.vpk_on": "[Draft] Clickable cards are on. They need the Ability Brawl addon; if the cards are blank, type /vpk again.",
   "draft.vpk_off": "[Draft] Clickable cards are off, pick with a digit in chat.",
+  "draft.vpk_found": "[Draft] Ability Brawl addon found: draft cards can be clicked. /vpk off switches it off.",
   "draft.imbue_needs_addon": "[Draft] Ability-targeted items need the Ability Brawl addon.",
 
   "menu.title": "ABILITY {0}/{1}",
