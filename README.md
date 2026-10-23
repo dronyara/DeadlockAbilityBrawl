@@ -222,7 +222,7 @@ Deadworks stops starting until its next release, and the plugin's own signatures
   v1.2.1). It has not been reproduced: on the author's server four players respawned dozens of times in an evening
   without it. If it happens to you, the client's crash dump from `game\bin\win64` and a try without the addon
   are what will tell where it comes from.
-- v1.5.1 is for build 6812 with Deadworks v0.6.2; the server was checked with bots, the addon finding itself
+- v1.5.1 is for build 6819 with Deadworks v0.6.2; the server was checked with bots, the addon finding itself
   was not tried in a client yet.
 - v1.5 is for build 6807 with Deadworks v0.6.2 (older Deadworks versions do not start on this build); the server
   was checked with bots. Violet and Nurse Harrow (new in this version) were tried with bots only: their abilities
