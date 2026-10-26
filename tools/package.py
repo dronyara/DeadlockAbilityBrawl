@@ -82,6 +82,7 @@ start. The file explains itself; in short:
   "UniqueHeroes": true             no two players on the same hero
   "SecondsAfterMatch": 20          delay before the lobby reopens after a match; 0 switches it off
   "DraftTimeLimit": 0              seconds the draft waits for a player before picking for them; 0 - no limit
+  "StockDraftScreen": true         false - draft in a menu before the match instead of on the Street Brawl screen
   "PregameSeconds": 10             Standard: countdown behind the spawn walls before the match starts
   "Logging": true                  false - no plugin lines in the server console or in its log file
   "ShuffleSeconds": 1              Shuffle format: seconds between using an ability and getting a new one

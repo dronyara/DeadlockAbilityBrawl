@@ -28,6 +28,9 @@
   "draft.vpk_off": "[Draft] Clickable cards are off, pick with a digit in chat.",
   "draft.vpk_found": "[Draft] Ability Brawl addon found: draft cards can be clicked. /vpk off switches it off.",
   "draft.imbue_needs_addon": "[Draft] Ability-targeted items need the Ability Brawl addon.",
+  "draft.vpk_missing": "[Draft] The Ability Brawl addon did not load in your game, so clickable cards would be blank. Check that the VPK is in game/citadel/addons and that gameinfo.gi has its line (see clientside/README.md).",
+  "draft.tab_needs_addon": "[Draft] A click in the TAB view upgrades drafted abilities only with the Ability Brawl addon. Without it, upgrade with ALT + ability key.",
+  "draft.tab_addon_missing": "[Draft] A click in the TAB view needs the Ability Brawl addon, and it did not load in your game: check that the VPK is in game/citadel/addons and that gameinfo.gi has its line (see clientside/README.md). Meanwhile upgrade with ALT + ability key.",
 
   "menu.title": "ABILITY {0}/{1}",
   "menu.title_ult": "ABILITY {0}/{1} · ULTIMATE",

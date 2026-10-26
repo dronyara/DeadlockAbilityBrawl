@@ -111,6 +111,7 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         _chaosHeroes.Clear();
         _trainHud.Clear();          // a new map: every client's script is loaded afresh
         _trainSkills.Clear();
+        _addonState.Clear();
         _wallsUp = false;           // a new map has its spawn walls down again
         _buyLength = 0;
         _format = Format.None;
@@ -272,8 +273,8 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         StartVote();
     }
 
-    /// <summary>The draft as a menu in front of the player, before the match: used for Standard rules,
-    /// which have no stock draft screen, and whenever the native functions could not be found.</summary>
+    /// <summary>The draft as a menu in front of the player, before the match: used whenever the native functions
+    /// could not be found, and when the config turns the stock screen off (StockDraftScreen).</summary>
     void BeginTextDraft()
     {
         foreach (var s in _seats.Values)
@@ -591,8 +592,8 @@ public sealed partial class DraftPlugin : DeadworksPluginBase
         }
         else if (_format == Format.Shuffle) AssignShuffleKits();
         // The draft runs on the stock Street Brawl screen once the match is up; the text menu is the fallback when it
-        // cannot. Kits that are already there (Chaos, Shuffle) need no draft at all.
-        if (Native.Ready || _kits.Count > 0) BeginCountdown(countdown);
+        // cannot, or when the config asks for it. Kits that are already there (Chaos, Shuffle) need no draft at all.
+        if (StockDraft || _kits.Count > 0) BeginCountdown(countdown);
         else BeginTextDraft();
     }
 

@@ -23,6 +23,8 @@ public sealed partial class DraftPlugin
         public int SecondsAfterMatch { get; set; } = 20;
         /// <summary>Seconds the draft waits for a player before making the rest of their picks at random. 0 = no limit.</summary>
         public int DraftTimeLimit { get; set; } = 0;
+        /// <summary>Draft on the stock Street Brawl screen when its functions are found; false: always the menu before the match.</summary>
+        public bool StockDraftScreen { get; set; } = true;
         /// <summary>Standard rules: seconds everyone waits behind the spawn walls before the match starts. 0 = none.</summary>
         public int PregameSeconds { get; set; } = 10;
         /// <summary>Write the plugin's log (the server console and the abilitydraft.log file in %TEMP%).</summary>
@@ -72,7 +74,7 @@ public sealed partial class DraftPlugin
             string text = File.ReadAllText(ConfigPath);
             var config = JsonSerializer.Deserialize<ConfigFile>(text, ConfigJson) ?? new ConfigFile();
             // A config written by an older version: add the settings it does not have yet, keep the ones it has.
-            if (!text.Contains(nameof(ConfigFile.Presets), StringComparison.OrdinalIgnoreCase)) WriteConfig(config);
+            if (!text.Contains(nameof(ConfigFile.StockDraftScreen), StringComparison.OrdinalIgnoreCase)) WriteConfig(config);
             var preset = ActivePreset(config);
             if (preset != null) ApplyPreset(config, preset);
             _config = config;
@@ -120,6 +122,9 @@ public sealed partial class DraftPlugin
             "//   lobby reopens. 0 switches this off.\n" +
             "// DraftTimeLimit: seconds the ability draft waits for a player; after that the rest of their picks are\n" +
             "//   made at random. 0 - no limit, the draft waits until everyone has picked.\n" +
+            "// StockDraftScreen: true - the draft runs on the stock Street Brawl draft screen once the match is up\n" +
+            "//   (Standard borrows Street Brawl's first buy phase, then the map is reloaded). false - the draft is a menu\n" +
+            "//   in front of the hero before the match, as when the plugin cannot find the stock screen after a patch.\n" +
             "// PregameSeconds: Standard rules - seconds everyone waits behind the spawn walls before the match starts.\n" +
             "// Logging: false - the plugin writes nothing to the server console or to its log file in %TEMP%.\n" +
             "// ShuffleSeconds: Shuffle format - seconds between using an ability and getting another one in its place.\n" +

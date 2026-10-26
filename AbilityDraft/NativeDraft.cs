@@ -63,6 +63,9 @@ public sealed partial class DraftPlugin
     bool _kitsShown;            // the kits panel went out for this draft
     float _nativeDeadline;      // only with DraftTimeLimit set: whoever is still drafting then gets random picks
 
+    /// <summary>The draft goes on the stock screen: its functions were found and the config has not turned it off.</summary>
+    bool StockDraft => Native.Ready && _config.StockDraftScreen;
+
     void ArmNativeDraft(bool thenStandard)
     {
         _nativeThenStandard = thenStandard;
@@ -76,6 +79,8 @@ public sealed partial class DraftPlugin
                 Click = !s.Bot && Players.FromSlot(s.Slot) is { } c && _clickers.Contains(c.PlayerSteamId),
             };
         Log($"NATIVE DRAFT armed for slots {string.Join(",", _native.Keys)} (rounds offsets {RoundsLeftOffset}/{RoundsTotalOffset})");
+        foreach (var ns in _native.Values.Where(ns => !ns.Bot))
+            Log($"  slot {ns.Slot}: {ClientUi(ns.Slot)}, {(ns.Click ? "twin cards (clickable)" : "bare ability cards")}");
     }
 
     void TickNativeDraft()
@@ -346,7 +351,8 @@ public sealed partial class DraftPlugin
         // Dealing again is the only thing that makes the client redraw the cards.
         // In a borrowed phase there are no items to go back to: the finished player just gets the screen closed.
         if (ns.Round >= Slots && _nativeThenStandard) { CloseDraft(pawn); return; }
-        if (ns.Bot || !_trainHud.ContainsKey(ns.Slot) || Players.FromSlot(ns.Slot) is not { } picker) { DealAfterPick(ns, pawn); return; }
+        // A client with the bridge but without the addon never answers: its next cards go out at once.
+        if (ns.Bot || !AddonScript(ns.Slot) || Players.FromSlot(ns.Slot) is not { } picker) { DealAfterPick(ns, pawn); return; }
         // The stock screen has a look for a taken card (it grows) and for the ones passed over (they fade), but only
         // shows it for a real purchase. A client with the addon is told which card was taken and puts those looks on
         // itself and says so; the next deal goes out a moment after that. The message to the client takes anything
@@ -541,6 +547,8 @@ public sealed partial class DraftPlugin
     public void CmdClick(CCitadelPlayerController caller, string mode = "")
     {
         bool on = mode.Length == 0 ? !_clickers.Contains(caller.PlayerSteamId) : mode is not ("off" or "0");
+        // The bridge found no addon on this client: twin cards would come out blank.
+        if (on && UI.Addon(caller.Slot, TrainPanelId) == AddonState.Failed) throw Fail(caller, "draft.vpk_missing");
         SetClick(caller, on);
         if (on) _clickOff.Remove(caller.PlayerSteamId); else _clickOff.Add(caller.PlayerSteamId);
         Chat.PrintToChat(caller, Tl(LangOf(caller.Slot), on ? "draft.vpk_on" : "draft.vpk_off"));
