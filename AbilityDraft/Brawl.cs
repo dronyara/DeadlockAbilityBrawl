@@ -110,7 +110,7 @@ public sealed partial class DraftPlugin
             var st = DraftState.GetAddress(pawn.Handle);
             Log($"  draft slot={pawn.Controller?.Slot} {pawn.Controller?.PlayerName} team={pawn.TeamNum} alive={pawn.IsAlive} cards={Marshal.ReadInt32(st, StateOptionCount)} id={Marshal.ReadInt32(st, StateId)} " +
                 $"picks={Marshal.ReadInt32(st, RoundsLeftOffset)}/{Marshal.ReadInt32(st, RoundsTotalOffset)} rerolls={pawn.GetCurrency(ECurrencyType.EItemDraftRerolls)} " +
-                $"items={pawn.AbilityComponent.Abilities.Count(x => x.IsItem)} addon={(pawn.Controller is { } c && _trainHud.ContainsKey(c.Slot) ? 1 : 0)}");
+                $"items={pawn.AbilityComponent.Abilities.Count(x => x.IsItem)} ui=[{(pawn.Controller is { } c ? ClientUi(c.Slot) : "-")}]");
         }
     }
 

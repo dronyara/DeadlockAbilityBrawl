@@ -28,6 +28,9 @@
   "draft.vpk_off": "[Draft] Клик по карточкам выключен, выбирай цифрой в чате.",
   "draft.vpk_found": "[Draft] Найден аддон Ability Brawl: по карточкам драфта можно кликать. /vpk off выключает.",
   "draft.imbue_needs_addon": "[Draft] Предметы «на способность» работают только с аддоном Ability Brawl.",
+  "draft.vpk_missing": "[Draft] Аддон Ability Brawl не загрузился в твоей игре, и карточки для клика были бы пустыми. Проверь, что VPK лежит в game/citadel/addons, а в gameinfo.gi есть его строка (см. clientside/README.md).",
+  "draft.tab_needs_addon": "[Draft] Клик в меню TAB прокачивает набранные способности только с аддоном Ability Brawl. Без него прокачка — ALT + кнопка способности.",
+  "draft.tab_addon_missing": "[Draft] Клику в меню TAB нужен аддон Ability Brawl, а он не загрузился в твоей игре: проверь, что VPK лежит в game/citadel/addons, а в gameinfo.gi есть его строка (см. clientside/README.md). Пока прокачивай через ALT + кнопка способности.",
 
   "menu.title": "СПОСОБНОСТЬ {0}/{1}",
   "menu.title_ult": "СПОСОБНОСТЬ {0}/{1} · УЛЬТА",

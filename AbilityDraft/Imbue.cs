@@ -43,7 +43,7 @@ public sealed partial class DraftPlugin
             return true;
         }
         if (_imbues.TryGetValue(c.Slot, out var busy) && Now < busy.Deadline) return true;
-        if (!_trainHud.ContainsKey(c.Slot))
+        if (!AddonScript(c.Slot))
         {
             Chat.PrintToChat(c, Tl(LangOf(c.Slot), "draft.imbue_needs_addon"));
             Log($"imbue refused for slot {c.Slot}: no addon on the client");

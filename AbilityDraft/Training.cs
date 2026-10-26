@@ -13,6 +13,7 @@ public sealed partial class DraftPlugin
     bool TrainCommand(ClientConCommandEvent args)
     {
         if (args.Controller is not { } c || !_kits.ContainsKey(c.Slot)) return false;
+        if (args.Command is "upgrade_ability" or "upgrade_ability_in_field") ExplainStockClick(c);
         // With the kit written into the hero's own table the stock commands find the right ability by themselves.
         if (HasNativeKit(c)) return false;
         // The stock HUD click sends these for the hero's original ability; left alone they would do nothing or,
@@ -27,6 +28,22 @@ public sealed partial class DraftPlugin
         return true;
     }
 
+    readonly HashSet<ulong> _stockClickExplained = new();
+
+    /// <summary>
+    /// A click reached the stock upgrade view, which lists the hero's original abilities, so it upgrades nothing. With
+    /// the addon its own buttons take the click; the player is told once why it does nothing.
+    /// </summary>
+    void ExplainStockClick(CCitadelPlayerController c)
+    {
+        if (!_stockClickExplained.Add(c.PlayerSteamId)) return;
+        var state = UI.HasClientBootstrap(c.Slot) ? UI.Addon(c.Slot, TrainPanelId) : AddonState.Unknown;
+        Log($"slot {c.Slot} clicked the stock upgrade view ({ClientUi(c.Slot)})");
+        // The addon is there, so its buttons missed the click: that is for the log, not something the player can fix.
+        if (state is AddonState.Loaded or AddonState.Ready) return;
+        Chat.PrintToChat(c, Tl(LangOf(c.Slot), state == AddonState.Failed ? "draft.tab_addon_missing" : "draft.tab_needs_addon"));
+    }
+
     // ---- the client's addon script ---------------------------------------------------------------------------
     // Clients with the optional addon carry the Deadworks UI bridge and a small script (addon/panorama). The server
     // loads it for every player whose client has the bridge; the script says "ad_hello" back, and it is told:
@@ -39,7 +56,17 @@ public sealed partial class DraftPlugin
     const string TrainLayout = "file://{resources}/layout/abilitydraft_hud.xml";
     readonly Dictionary<int, bool> _trainHud = new();       // slot -> the "train" value the client was last told
     readonly Dictionary<int, string> _trainSkills = new();  // slot -> the "skills" value the client was last told
+    readonly Dictionary<int, AddonState> _addonState = new();   // slot -> what the bridge last said about the layout
     bool _trainHudWired;
+
+    /// <summary>
+    /// The addon's script runs on this client, or may still come up: it was sent there and the bridge has not reported
+    /// the layout missing. A client with the bridge alone (the Deadworks launcher brings it) reports it missing.
+    /// </summary>
+    bool AddonScript(int slot) => _trainHud.ContainsKey(slot) && UI.Addon(slot, TrainPanelId) != AddonState.Failed;
+
+    /// <summary>For the log: what this client has of the bridge and the addon.</summary>
+    static string ClientUi(int slot) => UI.HasClientBootstrap(slot) ? $"bridge, addon {UI.Addon(slot, TrainPanelId)}" : "no bridge";
 
     void SyncTrainHud()
     {
@@ -47,6 +74,7 @@ public sealed partial class DraftPlugin
         {
             _trainHud.Remove(gone);
             _trainSkills.Remove(gone);
+            _addonState.Remove(gone);
         }
         foreach (var c in Players.GetAll())
         {
@@ -69,6 +97,13 @@ public sealed partial class DraftPlugin
                 UI.Panel(TrainPanelId).Set(c.Recipients, "train", train ? "1" : "0");
                 _trainHud[c.Slot] = train;
                 Log($"addon script for slot {c.Slot}: {(loaded ? "" : "loaded, ")}train={(train ? 1 : 0)}");
+            }
+            // The bridge says whether the layout was found on the client: for reports of blank cards or a dead TAB view.
+            var state = UI.Addon(c.Slot, TrainPanelId);
+            if (state != AddonState.Unknown && _addonState.GetValueOrDefault(c.Slot) != state)
+            {
+                _addonState[c.Slot] = state;
+                Log($"addon on slot {c.Slot} ({c.PlayerName}): {state}{(state == AddonState.Failed ? " - the client has the bridge but not the Ability Brawl addon" : "")}");
             }
             if (train) SendSkills(c);
         }

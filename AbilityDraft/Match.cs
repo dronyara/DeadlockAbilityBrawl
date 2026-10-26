@@ -19,9 +19,9 @@ public sealed partial class DraftPlugin
     {
         _phase = Phase.Match;
         Log($"MATCH START rules={_rules} kits={_kits.Count}");
-        // With the native functions available the draft always happens on the Street Brawl screen;
-        // for Standard rules that phase is only borrowed and the mode is switched back afterwards.
-        bool nativeDraft = Native.Ready && _kits.Count == 0;
+        // With the native functions available (and the stock screen not turned off) the draft happens on the Street
+        // Brawl screen; for Standard rules that phase is only borrowed and the mode is switched back afterwards.
+        bool nativeDraft = StockDraft && _kits.Count == 0;
         if (_rules == Rules.StreetBrawl || nativeDraft)
         {
             Server.ExecuteCommand($"{BrawlCvar} 1");

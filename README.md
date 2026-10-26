@@ -108,6 +108,7 @@ map start and on `/draft`:
   "UniqueHeroes": true,
   "SecondsAfterMatch": 20,
   "DraftTimeLimit": 0,
+  "StockDraftScreen": true,
   "PregameSeconds": 10,
   "Logging": true,
   "ShuffleSeconds": 1,
@@ -131,6 +132,10 @@ map start and on `/draft`:
   reopens. `0` switches this off.
 - `DraftTimeLimit` — seconds the ability draft waits for a player; after that the rest of their picks are made at
   random. `0` (the default) is no limit: the draft waits until everyone has picked.
+- `StockDraftScreen` — `true` (the default): the draft runs on the stock Street Brawl draft screen once the match is
+  up; under Standard rules the match borrows Street Brawl's first buy phase and the map is reloaded after the draft.
+  `false`: the draft is the menu in front of the crosshair before the match, as when the plugin cannot find the
+  stock screen after a game patch, and Standard needs no reload. Worth a try if the draft screen does not open.
 - `PregameSeconds` — Standard rules: seconds everyone waits behind the spawn walls before the match starts.
 - `Logging` — `false`: the plugin writes nothing to the server console or to `abilitydraft.log` in `%TEMP%`. Leave
   it on while something is being looked into: the log is what a bug report needs.
@@ -201,6 +206,8 @@ Deadworks stops starting until its next release, and the plugin's own signatures
 - **Without the addon, the TAB upgrade view is drawn for the hero's original abilities**: a click there does nothing
   and the pips stay empty. ALT + ability key works. With the addon the pips flicker now and then, because the game
   keeps resetting them and the addon keeps putting them back.
+- **The TAB view shows other players' original abilities**, with or without the addon: the game draws them from its
+  own hero data, which knows nothing of the draft.
 - **The pick animation needs the addon's script to hear from the server in time.** Those messages travel as
   closed captions; when the client stutters at the start of a match (seen with the server, the game and a
   recorder on one 8 GB machine) they get lost for about a quarter of a minute, and a pick made then goes
