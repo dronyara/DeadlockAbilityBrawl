@@ -90,6 +90,21 @@
 `AbilityDraft.config.json` и папка `AbilityDraft.lang` появляются в `game\bin\win64\managed\plugins` сервера
 (Advanced → **Server folder**) после первого запуска.
 
+### Арендованный Linux-сервер (Docker)
+У Deadworks есть Docker-образ, который запускает Windows-сервер под Wine, поэтому подходит недорогой Linux VPS:
+2–4 быстрых ядра, от 4 ГБ памяти (комфортно 8 ГБ; сервер с четырьмя ботами занял около 1,6 ГБ) и 40 ГБ диска, плюс аккаунт Steam с Deadlock в библиотеке (только чтобы
+скачать игру; подойдёт запасной). Сделайте всё по [инструкции Deadworks для Docker](https://github.com/Deadworks-net/deadworks#hosting-on-linux-docker),
+затем:
+1. Положите `AbilityDraft.dll` из архива релиза в `./plugins`. Больше ничего не нужно: сигнатуры внутри него.
+2. Создайте `./configs/server.cfg` со строкой `sv_hibernate_when_empty 0`.
+3. Откройте UDP 27015 в файрволе провайдера (или не открывайте, а пускайте друзей через Steam: лидер лобби получает
+   команду `connect [A:1:…]` в чат).
+4. `docker compose up -d`. Плагин запишет `AbilityDraft.config.json` и `AbilityDraft.lang` в `./plugins`, рядом с
+   собой.
+
+После обновления игры `docker compose restart` скачает игру и свежий Deadworks; `AbilityDraft.dll` замените, когда
+выйдет новый релиз Ability Brawl.
+
 ### Сборка из исходников
 ```
 dotnet build AbilityDraft -c Release

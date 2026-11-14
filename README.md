@@ -86,6 +86,23 @@ The launcher's hosting runs a server from its own copy of the game, with its own
 `AbilityDraft.config.json` and the `AbilityDraft.lang` folder appear in the server's `game\bin\win64\managed\plugins`
 (Advanced → **Server folder**) after the first start.
 
+### A rented Linux server (Docker)
+Deadworks publishes a Docker image that runs the Windows server under Wine, so a cheap Linux VPS works: 2-4 fast
+CPU cores, 4 GB of memory at least (8 GB is comfortable; one server with four bots used about 1.6 GB) and 40 GB of
+disk, and a Steam account with Deadlock in its library
+(only for downloading the game; a spare account is fine). Follow
+[Deadworks' Docker guide](https://github.com/Deadworks-net/deadworks#hosting-on-linux-docker), then:
+1. Put `AbilityDraft.dll` from the release zip into `./plugins`. It is the only file needed: the signatures are
+   inside it.
+2. Create `./configs/server.cfg` with the line `sv_hibernate_when_empty 0`.
+3. Open UDP 27015 in the provider's firewall (or leave it closed and let friends join through Steam: the lobby
+   leader gets the `connect [A:1:…]` command in chat).
+4. `docker compose up -d`. The plugin writes `AbilityDraft.config.json` and `AbilityDraft.lang` into `./plugins`,
+   next to itself.
+
+After a game update `docker compose restart` fetches the game and the newest Deadworks; replace `AbilityDraft.dll`
+when a new Ability Brawl release is out.
+
 ### Building from source
 ```
 dotnet build AbilityDraft -c Release
